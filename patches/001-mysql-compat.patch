@@ -1,0 +1,121 @@
+diff --git a/src/backend/parser/analyze.c b/src/backend/parser/analyze.c
+index 1234567..abcdef0 100644
+--- a/src/backend/parser/analyze.c
++++ b/src/backend/parser/analyze.c
+@@ -10,6 +10,7 @@
+  * PostgreSQL
+  */
+ #include "postgres.h"
++#include "cnmd_compat.h"
+ 
+ #ifdef PGXC
+ #include "pgxc/pgxc.h"
+@@ -50,6 +51,12 @@ pg_analyze(RawStmt *parse_tree, const char *sourceText)
+     List       *parsetree_list;
+     ListCell   *lc;
+ 
++    /* CNMD MySQL兼容模式检查 */
++    if (cnmd_compat_mysql_mode())
++    {
++        parse_tree = cnmd_transform_mysql_stmt(parse_tree);
++    }
++
+     Assert(parse_tree != NULL);
+ 
+     /* 必须有源文本才能进行解析 */
+diff --git a/src/backend/utils/misc/guc.c b/src/backend/utils/misc/guc.c
+index 1234567..abcdef0 100644
+--- a/src/backend/utils/misc/guc.c
++++ b/src/backend/utils/misc/guc.c
+@@ -100,6 +100,7 @@
+  * PostgreSQL
+  */
+ #include "postgres.h"
++#include "cnmd_compat.h"
+ 
+ #include <float.h>
+ #include <math.h>
+@@ -500,6 +501,15 @@ ConfigureNamesBool[] =
+         NULL, NULL, NULL
+     },
+ 
++    /* CNMD MySQL兼容模式 */
++    {
++        {"cnmd.compatibility_mode", PGC_USERSET, COMPAT,
++         gettext_noop("Sets the compatibility mode for CNMD."),
++         NULL,
++         GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE
++        },
++        &cnmd_compatibility_mode
++    },
++
+     /* End-of-list marker */
+     {
+         {NULL, 0, 0, NULL, NULL, 0},
+diff --git a/src/include/utils/guc.h b/src/include/utils/guc.h
+index 1234567..abcdef0 100644
+--- a/src/include/utils/guc.h
++++ b/src/include/utils/guc.h
+@@ -10,6 +10,7 @@
+  * PostgreSQL
+  */
+ #ifndef GUC_H
+ #define GUC_H
+ 
++#include "cnmd_compat.h"
+ 
+ /*
+diff --git a/src/include/cnmd/cnmd_compat.h b/src/include/cnmd/cnmd_compat.h
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/src/include/cnmd/cnmd_compat.h
+@@ -0,0 +1,50 @@
++/*
++ * cnmd_compat.h
++ *
++ * CNMD MySQL兼容模式头文件
++ */
++
++#ifndef CNMD_COMPAT_H
++#define CNMD_COMPAT_H
++
++#include "postgres.h"
++
++/* MySQL兼容模式开关 */
++typedef enum {
++    CNMD_COMPAT_NONE = 0,
++    CNMD_COMPAT_MYSQL = 1,
++    CNMD_COMPAT_ORACLE = 2
++} CNMDCompatMode;
++
++extern bool cnmd_compatibility_mode;
++
++/* 函数声明 */
++extern bool cnmd_compat_mysql_mode(void);
++extern RawStmt *cnmd_transform_mysql_stmt(RawStmt *stmt);
++extern void cnmd_compat_init(void);
++extern void cnmd_compat_cleanup(void);
++
++/* MySQL语法转换函数 */
++extern Node *cnmd_transform_show_tables(ParseState *pstate);
++extern Node *cnmd_transform_describe_table(ParseState *pstate, char *tablename);
++extern Node *cnmd_transform_select_at_variable(ParseState *pstate, char *varname);
++extern Node *cnmd_transform_insert_ignore(ParseState *pstate, InsertStmt *stmt);
++extern Node *cnmd_transform_replace_into(ParseState *pstate, InsertStmt *stmt);
++extern Node *cnmd_transform_limit_offset(ParseState *pstate, SelectStmt *stmt);
++
++/* MySQL函数映射 */
++extern Node *cnmd_transform_mysql_function(Oid funcid, List *args);
++
++/* MySQL数据类型映射 */
++extern Oid cnmd_map_mysql_datatype(const char *typename);
++
++/* MySQL认证方式 */
++extern bool cnmd_mysql_authenticate(Port *port);
++
++/* 工具函数 */
++extern char *cnmd_get_compat_mode_name(void);
++extern void cnmd_set_compat_mode(const char *mode);
++
++#endif /* CNMD_COMPAT_H */

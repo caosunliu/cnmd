@@ -1,0 +1,66 @@
+# Compiled source
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# Build directories
+build/
+_build/
+cmake-build-*/
+
+# PostgreSQL source
+src/postgresql-*/
+
+# GmSSL
+gmssl/
+GmSSL/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Binary files
+bin/
+lib/
+include/
+share/
+doc/
+
+# Package files
+*.tar.gz
+*.tar.bz2
+*.rpm
+*.deb
+
+# Test results
+results/
+tmp_check/
+log/
+
+# Coverage
+coverage/
+*.gcno
+*.gcda
+*.gcov

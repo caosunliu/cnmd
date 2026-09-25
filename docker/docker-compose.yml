@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  cnmd:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cnmd-server
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_DB=postgres
+      - CNMD_COMPATIBILITY_MODE=mysql
+    volumes:
+      - cnmd-data:/var/lib/cnmd/data
+      - cnmd-logs:/var/log/cnmd
+      - ./postgresql.conf:/etc/cnmd/postgresql.conf
+      - ./pg_hba.conf:/etc/cnmd/pg_hba.conf
+    networks:
+      - cnmd-network
+    healthcheck:
+      test: ["CMD", "/usr/local/cnmd/bin/cnmd-pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 可选：GmSSL证书生成服务
+  gmssl-certs:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cnmd-certs
+    volumes:
+      - certs:/etc/cnmd
+    command: >
+      sh -c "
+        if [ ! -f /etc/cnmd/server.crt ]; then
+          echo '生成国密SSL证书...'
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /etc/cnmd/server.key \
+            -out /etc/cnmd/server.crt \
+            -subj '/CN=cnmd-server'
+          chown cnmd:cnmd /etc/cnmd/server.*
+          chmod 600 /etc/cnmd/server.key
+        fi
+        echo '证书生成完成'
+      "
+
+volumes:
+  cnmd-data:
+    driver: local
+  cnmd-logs:
+    driver: local
+  certs:
+    driver: local
+
+networks:
+  cnmd-network:
+    driver: bridge
