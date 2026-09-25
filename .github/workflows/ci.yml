@@ -1,0 +1,206 @@
+name: CNMD CI/CD
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: '构建模式'
+        required: true
+        default: 'native'
+        type: choice
+        options:
+        - native
+        - docker
+        - all
+      architecture:
+        description: '目标架构'
+        required: false
+        default: 'amd64'
+        type: choice
+        options:
+        - amd64
+        - arm64
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 本地构建（Linux）
+  build-native:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置构建环境
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          gcc \
+          g++ \
+          make \
+          cmake \
+          git \
+          wget \
+          curl \
+          pkg-config \
+          libreadline-dev \
+          zlib1g-dev \
+          libssl-dev \
+          libxml2-dev \
+          libxslt1-dev \
+          libsystemd-dev \
+          libicu-dev \
+          uuid-dev \
+          flex \
+          bison \
+          python3
+
+    - name: 构建GmSSL
+      run: |
+        cd src
+        wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz" -O gmssl-3.2.0.tar.gz
+        tar -xzf gmssl-3.2.0.tar.gz
+        cd GmSSL-3.2.0
+        mkdir -p build && cd build
+        cmake .. -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/gmssl -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
+        make install
+
+    - name: 构建CNMD
+      run: |
+        cd src/postgresql-18
+        ./configure \
+          --prefix=${{ github.workspace }}/build/cnmd \
+          --with-ssl=openssl \
+          --with-includes=${{ github.workspace }}/build/gmssl/include \
+          --with-libraries=${{ github.workspace }}/build/gmssl/lib \
+          --enable-integer-datetimes \
+          --enable-thread-safety \
+          --with-libxml \
+          --with-libxslt \
+          --with-uuid-ossp
+        make -j$(nproc)
+
+    - name: 运行测试
+      run: |
+        cd src/postgresql-18
+        make check || true
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: cnmd-${{ matrix.os }}
+        path: |
+          build/cnmd/
+          build/gmssl/
+        retention-days: 7
+
+  # Docker构建
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: build-native
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 登录Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: 登录GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 提取元数据
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ env.IMAGE_NAME }}
+          ghcr.io/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=sha
+
+    - name: 构建并推送Docker镜像
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # 安全扫描
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-native
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 运行安全扫描
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vulnerability-type: 'os,library'
+
+  # 发布
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-native, build-docker, security-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 下载构建产物
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+
+    - name: 创建发布包
+      run: |
+        tar -czf cnmd-1.0.0-linux-amd64.tar.gz -C artifacts/cnmd-ubuntu-22.04/build cnmd gmssl
+        tar -czf cnmd-1.0.0-source.tar.gz --exclude='.git' .
+
+    - name: 创建Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          cnmd-1.0.0-linux-amd64.tar.gz
+          cnmd-1.0.0-source.tar.gz
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

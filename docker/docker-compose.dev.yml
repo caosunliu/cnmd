@@ -1,0 +1,84 @@
+version: '3.8'
+
+# ============================================
+# CNMD Docker Compose - 本地开发和测试
+# ============================================
+
+services:
+  # 构建环境服务
+  builder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.builder
+    container_name: cnmd-builder
+    volumes:
+      - ../src:/build/cnmd/src
+      - ../scripts:/build/cnmd/scripts
+      - ../patches:/build/cnmd/patches
+      - ../config:/build/cnmd/config
+      - build-cache:/build/cnmd/build
+    networks:
+      - cnmd-network
+
+  # 数据库服务
+  cnmd-db:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cnmd-server
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_DB=postgres
+      - CNMD_COMPATIBILITY_MODE=mysql
+    volumes:
+      - cnmd-data:/var/lib/cnmd/data
+      - cnmd-logs:/var/log/cnmd
+      - ../config/postgresql.conf:/etc/cnmd/postgresql.conf
+      - ../config/pg_hba.conf:/etc/cnmd/pg_hba.conf
+    networks:
+      - cnmd-network
+    healthcheck:
+      test: ["CMD", "/usr/local/cnmd/bin/cnmd-pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - builder
+
+  # 测试服务
+  cnmd-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.builder
+    container_name: cnmd-test
+    volumes:
+      - ../scripts:/build/cnmd/scripts
+      - ../docs:/build/cnmd/docs
+    networks:
+      - cnmd-network
+    depends_on:
+      cnmd-db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '等待数据库启动...'
+        sleep 10
+        echo '运行测试脚本...'
+        /build/cnmd/scripts/test-gm-crypto.sh cnmd-db 5432 postgres postgres
+      "
+
+volumes:
+  cnmd-data:
+    driver: local
+  cnmd-logs:
+    driver: local
+  build-cache:
+    driver: local
+
+networks:
+  cnmd-network:
+    driver: bridge
