@@ -47,13 +47,19 @@ RUN echo "构建架构: $(uname -m)" && \
     echo "基础镜像: ${BASE_IMAGE}" && \
     gcc --version | head -n1
 
+# 下载PostgreSQL源码
+RUN mkdir -p /build/cnmd/src && \
+    cd /build/cnmd/src && \
+    wget -q "https://github.com/postgres/postgres/archive/refs/heads/REL_18_STABLE.tar.gz" -O postgresql-18.tar.gz && \
+    tar -xzf postgresql-18.tar.gz && \
+    mv postgres-REL_18_STABLE postgresql-18 && \
+    rm -f postgresql-18.tar.gz
+
 # 构建GmSSL
 RUN cd /build/cnmd/src && \
-    if [ ! -d "GmSSL-3.2.0" ]; then \
-        wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz" -O gmssl-3.2.0.tar.gz && \
-        tar -xzf gmssl-3.2.0.tar.gz && \
-        rm -f gmssl-3.2.0.tar.gz; \
-    fi && \
+    wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz" -O gmssl-3.2.0.tar.gz && \
+    tar -xzf gmssl-3.2.0.tar.gz && \
+    rm -f gmssl-3.2.0.tar.gz && \
     cd GmSSL-3.2.0 && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_INSTALL_PREFIX=/build/cnmd/build/gmssl -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
