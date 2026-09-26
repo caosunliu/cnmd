@@ -12,9 +12,6 @@ build/
 _build/
 cmake-build-*/
 
-# PostgreSQL source
-src/postgresql-*/
-
 # GmSSL
 gmssl/
 GmSSL/
