@@ -72,6 +72,14 @@ jobs:
           bison \
           python3
 
+    - name: 下载PostgreSQL源码
+      run: |
+        mkdir -p src
+        cd src
+        wget -q "https://github.com/postgres/postgres/archive/refs/tags/REL_18_BETA1.tar.gz" -O postgresql-18.tar.gz
+        tar -xzf postgresql-18.tar.gz
+        mv postgres-REL_18_BETA1 postgresql-18
+
     - name: 构建GmSSL
       run: |
         cd src
