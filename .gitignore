@@ -39,11 +39,11 @@ logs/
 *.orig
 
 # Binary files
-bin/
-lib/
-include/
-share/
-doc/
+/bin/
+/lib/
+/include/
+/share/
+/doc/
 
 # Package files
 *.tar.gz
