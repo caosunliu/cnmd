@@ -68,9 +68,7 @@ jobs:
       run: |
         mkdir -p src
         cd src
-        wget -q "https://github.com/postgres/postgres/archive/refs/heads/REL_18_STABLE.tar.gz" -O postgresql-18.tar.gz
-        tar -xzf postgresql-18.tar.gz
-        mv postgres-REL_18_STABLE postgresql-18
+        git clone --depth 1 --branch REL_18_STABLE https://github.com/postgres/postgres.git postgresql-18
 
     - name: 代码格式检查
       run: |
@@ -362,9 +360,7 @@ jobs:
       run: |
         mkdir -p src
         cd src
-        wget -q "https://github.com/postgres/postgres/archive/refs/heads/REL_18_STABLE.tar.gz" -O postgresql-18.tar.gz
-        tar -xzf postgresql-18.tar.gz
-        mv postgres-REL_18_STABLE postgresql-18
+        git clone --depth 1 --branch REL_18_STABLE https://github.com/postgres/postgres.git postgresql-18
 
     - name: 构建GmSSL
       run: |
