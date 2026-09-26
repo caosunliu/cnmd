@@ -56,15 +56,6 @@ jobs:
           libxml2-dev libxslt1-dev libsystemd-dev libicu-dev \
           uuid-dev flex bison python3
 
-    - name: 下载PostgreSQL源码
-      run: |
-        mkdir -p src
-        cd src
-        wget -q "https://github.com/postgres/postgres/archive/refs/heads/master.tar.gz" -O postgresql-18.tar.gz
-        tar -xzf postgresql-18.tar.gz
-        mv postgres-master postgresql-18
-        rm -f postgresql-18.tar.gz
-
     - name: 构建GmSSL
       run: |
         cd src

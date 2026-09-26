@@ -47,14 +47,6 @@ RUN echo "构建架构: $(uname -m)" && \
     echo "基础镜像: ${BASE_IMAGE}" && \
     gcc --version | head -n1
 
-# 下载PostgreSQL源码
-RUN mkdir -p /build/cnmd/src && \
-    cd /build/cnmd/src && \
-    wget --no-check-certificate -q "https://github.com/postgres/postgres/archive/refs/heads/master.tar.gz" -O postgresql-18.tar.gz && \
-    tar -xzf postgresql-18.tar.gz && \
-    mv postgres-master postgresql-18 && \
-    rm -f postgresql-18.tar.gz
-
 # 构建GmSSL
 RUN cd /build/cnmd/src && \
     wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz" -O gmssl-3.2.0.tar.gz && \
@@ -68,6 +60,7 @@ RUN cd /build/cnmd/src && \
 
 # 构建CNMD
 RUN cd /build/cnmd/src/postgresql-18 && \
+    chmod +x configure && \
     ./configure \
         --prefix=/build/cnmd/build/cnmd \
         --with-ssl=openssl \
