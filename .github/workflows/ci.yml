@@ -187,6 +187,7 @@ jobs:
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
+        chmod +x configure
         export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix icu4c)/lib/pkgconfig:$(brew --prefix libxslt)/lib/pkgconfig"
         export LDFLAGS="-L$(brew --prefix openssl@3)/lib -L$(brew --prefix readline)/lib -L$(brew --prefix zlib)/lib -L$(brew --prefix icu4c)/lib"
         export CPPFLAGS="-I$(brew --prefix openssl@3)/include -I$(brew --prefix readline)/include -I$(brew --prefix zlib)/include -I$(brew --prefix icu4c)/include"
