@@ -378,9 +378,12 @@ jobs:
         mkdir -p build && cd build
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
           cmake .. \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cpu.arch }} \
-            -DCMAKE_C_COMPILER=${{ matrix.cpu.cross_compile }}gcc \
+            -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/arm64-toolchain.cmake" \
+            -DCMAKE_AR=${{ matrix.cpu.cross_compile }}ar \
+            -DCMAKE_RANLIB=${{ matrix.cpu.cross_compile }}ranlib \
+            -DCMAKE_STRIP=${{ matrix.cpu.cross_compile }}strip \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/gmssl \
             -DCMAKE_BUILD_TYPE=Release
         else
@@ -390,6 +393,8 @@ jobs:
         fi
         make -j$(nproc)
         make install
+        ls -l "${{ github.workspace }}/build/gmssl/lib"
+        file "${{ github.workspace }}/build/gmssl/lib/"libcrypto* || true
 
     - name: 构建CNMD
       run: |
@@ -408,7 +413,8 @@ jobs:
             --with-libraries=${{ github.workspace }}/build/gmssl/lib \
             --enable-integer-datetimes \
             --without-readline \
-            --without-icu
+            --without-icu \
+            || { echo "=== configure 失败，config.log 末尾 ==="; tail -n 60 config.log; exit 1; }
         else
           ./configure \
             --prefix=${{ github.workspace }}/build/cnmd \
