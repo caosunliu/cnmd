@@ -119,6 +119,12 @@ jobs:
     - name: 设置Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: 登录Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
     - name: 登录GitHub Container Registry
       uses: docker/login-action@v3
       with:
@@ -141,6 +147,8 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event.inputs.push_images != 'false' }}
         tags: |
+          ${{ env.IMAGE_NAME }}:kylin-${{ matrix.arch }}
+          ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
           ghcr.io/${{ env.IMAGE_NAME }}:kylin-${{ matrix.arch }}
           ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
         labels: |
@@ -187,6 +195,12 @@ jobs:
     - name: 设置Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: 登录Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
     - name: 登录GitHub Container Registry
       uses: docker/login-action@v3
       with:
@@ -209,6 +223,8 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event.inputs.push_images != 'false' }}
         tags: |
+          ${{ env.IMAGE_NAME }}:uos-${{ matrix.arch }}
+          ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
           ghcr.io/${{ env.IMAGE_NAME }}:uos-${{ matrix.arch }}
           ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
         labels: |
@@ -250,6 +266,12 @@ jobs:
     - name: 设置Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: 登录Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
     - name: 登录GitHub Container Registry
       uses: docker/login-action@v3
       with:
@@ -272,6 +294,8 @@ jobs:
         platforms: ${{ matrix.platform }}
         push: ${{ github.event.inputs.push_images != 'false' }}
         tags: |
+          ${{ env.IMAGE_NAME }}:openeuler-${{ matrix.arch }}
+          ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
           ghcr.io/${{ env.IMAGE_NAME }}:openeuler-${{ matrix.arch }}
           ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
         labels: |
