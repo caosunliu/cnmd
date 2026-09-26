@@ -111,15 +111,6 @@ jobs:
     - name: 安装依赖
       uses: bwoodsend/setup-winlibs-action@v1
 
-    - name: 下载PostgreSQL源码
-      run: |
-        if (!(Test-Path src)) { mkdir src }
-        cd src
-        curl -sL "https://github.com/postgres/postgres/archive/refs/heads/master.tar.gz" -o postgresql-18.tar.gz
-        tar -xzf postgresql-18.tar.gz
-        mv postgres-master postgresql-18
-        del postgresql-18.tar.gz
-
     - name: 构建Tongsuo
       run: |
         WORKSPACE=$(cygpath -u "${{ github.workspace }}")
