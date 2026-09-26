@@ -3,8 +3,8 @@
 # 支持: 统信UOS
 # ============================================
 
-# 基础镜像 - 统信UOS
-FROM uos:latest AS builder-uos
+# 基础镜像 - 统信UOS (使用兼容的Ubuntu基础镜像)
+FROM ubuntu:22.04 AS builder-uos
 
 # 设置环境变量
 ENV DEBIAN_FRONTEND=noninteractive

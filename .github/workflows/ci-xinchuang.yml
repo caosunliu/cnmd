@@ -100,10 +100,10 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
-            kylin_image: kylinv10/kylin:latest
+            kylin_image: ubuntu:22.04
           - arch: arm64
             platform: linux/arm64
-            kylin_image: kylinv10/kylin:latest
+            kylin_image: ubuntu:22.04
 
     steps:
     - name: 检出代码

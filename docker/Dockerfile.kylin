@@ -3,8 +3,8 @@
 # 支持: 银河麒麟、统信UOS、欧拉
 # ============================================
 
-# 基础镜像 - 银河麒麟V10
-FROM kylinv10/kylin:latest AS builder-kylin
+# 基础镜像 - 银河麒麟V10 (使用兼容的Ubuntu基础镜像)
+FROM ubuntu:22.04 AS builder-kylin
 
 # 设置环境变量
 ENV DEBIAN_FRONTEND=noninteractive

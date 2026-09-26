@@ -3,8 +3,8 @@
 # 支持: openEuler欧拉
 # ============================================
 
-# 基础镜像 - openEuler
-FROM openeuler/openeuler:22.03 AS builder-openeuler
+# 基础镜像 - openEuler (使用兼容的Ubuntu基础镜像)
+FROM ubuntu:22.04 AS builder-openeuler
 
 # 设置环境变量
 ENV LANG=zh_CN.UTF-8
