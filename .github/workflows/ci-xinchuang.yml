@@ -387,7 +387,8 @@ jobs:
             --with-ssl=openssl \
             --with-includes=${{ github.workspace }}/build/gmssl/include \
             --with-libraries=${{ github.workspace }}/build/gmssl/lib \
-            --enable-integer-datetimes
+            --enable-integer-datetimes \
+            --without-readline
         else
           ./configure \
             --prefix=${{ github.workspace }}/build/cnmd \
