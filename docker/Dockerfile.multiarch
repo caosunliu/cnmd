@@ -50,7 +50,7 @@ RUN echo "构建架构: $(uname -m)" && \
 # 下载PostgreSQL源码
 RUN mkdir -p /build/cnmd/src && \
     cd /build/cnmd/src && \
-    git clone --depth 1 --branch REL_18_STABLE https://github.com/postgres/postgres.git postgresql-18
+    git clone --depth 1 --branch master https://github.com/postgres/postgres.git postgresql-18
 
 # 构建GmSSL
 RUN cd /build/cnmd/src && \

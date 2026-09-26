@@ -37,7 +37,7 @@ jobs:
       run: |
         mkdir -p src
         cd src
-        git clone --depth 1 --branch REL_18_STABLE https://github.com/postgres/postgres.git postgresql-18
+        git clone --depth 1 --branch master https://github.com/postgres/postgres.git postgresql-18
 
     - name: 构建GmSSL
       run: |
