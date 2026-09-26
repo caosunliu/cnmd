@@ -112,8 +112,8 @@ jobs:
       run: |
         WORKSPACE=$(cygpath -u "${{ github.workspace }}")
         cd src/Tongsuo-8.4.0
-        chmod +x config Configure
-        ./config \
+        chmod +x Configure
+        perl Configure mingw64 \
           --prefix=$WORKSPACE/build/tongsuo \
           --openssldir=$WORKSPACE/build/tongsuo/ssl \
           enable-sm2 enable-sm3 enable-sm4
