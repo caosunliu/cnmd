@@ -39,14 +39,20 @@ RUN apt-get update && apt-get install -y \
 # 设置工作目录
 WORKDIR /build
 
-# 复制构建脚本
+# 复制构建脚本和源码
 COPY scripts/ /build/scripts/
 COPY patches/ /build/patches/
 COPY config/ /build/config/
+COPY src/Tongsuo-8.4.0 /build/src/Tongsuo-8.4.0
 
 # 构建Tongsuo（OpenSSL兼容，含国密）
-RUN chmod +x /build/scripts/build-tongsuo.sh && \
-    /build/scripts/build-tongsuo.sh 8.4.0
+RUN cd /build/src/Tongsuo-8.4.0 && \
+    ./config \
+        --prefix=/usr/local/tongsuo \
+        --openssldir=/usr/local/tongsuo/ssl \
+        enable-sm2 enable-sm3 enable-sm4 && \
+    make -j$(nproc) && \
+    make install_dev
 
 # 获取PostgreSQL源码
 RUN git clone --branch REL_18_6 --depth 1 \

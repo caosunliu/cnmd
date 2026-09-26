@@ -58,10 +58,7 @@ jobs:
 
     - name: 构建Tongsuo
       run: |
-        cd src
-        wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -O tongsuo-8.4.0.tar.gz
-        tar -xzf tongsuo-8.4.0.tar.gz
-        cd Tongsuo-8.4.0
+        cd src/Tongsuo-8.4.0
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
           --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
@@ -113,10 +110,7 @@ jobs:
     - name: 构建Tongsuo
       run: |
         WORKSPACE=$(cygpath -u "${{ github.workspace }}")
-        cd src
-        curl -sL "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -o tongsuo-8.4.0.tar.gz
-        tar -xzf tongsuo-8.4.0.tar.gz
-        cd Tongsuo-8.4.0
+        cd src/Tongsuo-8.4.0
         mkdir -p build && cd build
         cmake .. -DCMAKE_INSTALL_PREFIX=$WORKSPACE/build/tongsuo -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
         mingw32-make -j4
@@ -171,10 +165,7 @@ jobs:
 
     - name: 构建Tongsuo
       run: |
-        cd src
-        wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -O tongsuo-8.4.0.tar.gz
-        tar -xzf tongsuo-8.4.0.tar.gz
-        cd Tongsuo-8.4.0
+        cd src/Tongsuo-8.4.0
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
           --openssldir=${{ github.workspace }}/build/tongsuo/ssl \

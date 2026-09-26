@@ -5,7 +5,7 @@
 # 用法: ./build-cnmd.sh [选项]
 #   -p, --prefix DIR     安装路径 (默认: /usr/local/cnmd)
 #   -j, --jobs N         并行编译数 (默认: CPU核心数)
-#   --with-tongsuo DIR    Tongsuo安装路径 (默认: /usr/local/tongsuo)
+#   --with-tongsuo DIR    Tongsuo安装路径 (默认: src/Tongsuo-8.4.0)
 #   --debug              启用调试模式
 #   --mysql-compat       启用MySQL兼容模式
 #   -h, --help           显示帮助
@@ -16,11 +16,11 @@ set -e
 # 默认参数
 PREFIX="/usr/local/cnmd"
 JOBS=$(nproc)
-TONGSUO_PREFIX="/usr/local/tongsuo"
-DEBUG=false
-MYSQL_COMPAT=true
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+TONGSUO_PREFIX="${PROJECT_ROOT}/src/Tongsuo-8.4.0"
+DEBUG=false
+MYSQL_COMPAT=true
 SRC_DIR="${PROJECT_ROOT}/src/postgresql-18"
 
 # 解析命令行参数
@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
             echo "选项:"
             echo "  -p, --prefix DIR     安装路径 (默认: /usr/local/cnmd)"
             echo "  -j, --jobs N         并行编译数 (默认: CPU核心数)"
-            echo "  --with-tongsuo DIR    Tongsuo安装路径 (默认: /usr/local/tongsuo)"
+            echo "  --with-tongsuo DIR    Tongsuo安装路径 (默认: src/Tongsuo-8.4.0)"
             echo "  --debug              启用调试模式"
             echo "  --mysql-compat       启用MySQL兼容模式"
             echo "  -h, --help           显示帮助"

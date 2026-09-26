@@ -2,22 +2,29 @@
 #
 # build-tongsuo.sh - 编译安装Tongsuo国密SSL库（OpenSSL兼容）
 #
-# 用法: ./build-tongsuo.sh [版本号]
-# 默认版本: 8.4.0
+# 用法: ./build-tongsuo.sh [安装路径]
+# 默认安装路径: /usr/local/tongsuo
+# 源码路径: src/Tongsuo-8.4.0
 #
 
 set -e
 
-TONGSUO_VERSION=${1:-8.4.0}
-TONGSUO_DIR="Tongsuo-${TONGSUO_VERSION}"
-INSTALL_PREFIX="/usr/local/tongsuo"
+INSTALL_PREFIX=${1:-/usr/local/tongsuo}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+TONGSUO_SRC="${PROJECT_ROOT}/src/Tongsuo-8.4.0"
 
 echo "=========================================="
 echo "  Tongsuo 国密SSL库编译安装脚本"
-echo "  版本: ${TONGSUO_VERSION}"
+echo "  源码路径: ${TONGSUO_SRC}"
+echo "  安装路径: ${INSTALL_PREFIX}"
 echo "=========================================="
+
+# 检查源码目录
+if [ ! -d "${TONGSUO_SRC}" ]; then
+    echo "[错误] Tongsuo源码不存在: ${TONGSUO_SRC}"
+    exit 1
+fi
 
 # 检查是否已安装
 if [ -d "${INSTALL_PREFIX}" ]; then
@@ -31,18 +38,7 @@ if [ -d "${INSTALL_PREFIX}" ]; then
 fi
 
 # 进入源码目录
-cd "${PROJECT_ROOT}/src"
-
-# 下载Tongsuo（如果不存在）
-if [ ! -d "${TONGSUO_DIR}" ]; then
-    echo "[信息] 下载Tongsuo ${TONGSUO_VERSION}..."
-    wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/${TONGSUO_VERSION}.tar.gz" -O "tongsuo-${TONGSUO_VERSION}.tar.gz"
-    tar -xzf "tongsuo-${TONGSUO_VERSION}.tar.gz"
-    rm -f "tongsuo-${TONGSUO_VERSION}.tar.gz"
-fi
-
-# 进入源码目录
-cd "${TONGSUO_DIR}"
+cd "${TONGSUO_SRC}"
 
 # 配置
 echo "[信息] 配置Tongsuo..."

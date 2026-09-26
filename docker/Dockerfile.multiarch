@@ -48,16 +48,12 @@ RUN echo "构建架构: $(uname -m)" && \
     gcc --version | head -n1
 
 # 构建Tongsuo（OpenSSL兼容，含国密）
-RUN cd /build/cnmd/src && \
-    wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -O tongsuo-8.4.0.tar.gz && \
-    tar -xzf tongsuo-8.4.0.tar.gz && \
-    rm -f tongsuo-8.4.0.tar.gz && \
-    cd Tongsuo-8.4.0 && \
+RUN cd /build/cnmd/src/Tongsuo-8.4.0 && \
     ./config \
         --prefix=/build/cnmd/build/tongsuo \
         --openssldir=/build/cnmd/build/tongsuo/ssl \
         enable-sm2 enable-sm3 enable-sm4 && \
-    make -j$(nproc) && \
+    make -j2 && \
     make install_dev
 
 # 构建CNMD
@@ -99,7 +95,7 @@ COPY --from=builder /build/cnmd/build/tongsuo /usr/local/tongsuo
 
 # 设置环境变量
 ENV PATH="/usr/local/cnmd/bin:/usr/local/tongsuo/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/tongsuo/lib:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/tongsuo/lib"
 
 # 创建用户和目录
 RUN groupadd -r cnmd 2>/dev/null || true && \
