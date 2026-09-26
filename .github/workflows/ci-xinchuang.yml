@@ -335,7 +335,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential flex bison perl curl \
-          zlib1g-dev libicu-dev uuid-dev
+          zlib1g-dev libicu-dev uuid-dev libssl-dev
         if [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
         fi
@@ -370,6 +370,20 @@ jobs:
           -DZLIB_BUILD_EXAMPLES=OFF
         cmake --build build -j $(nproc)
         cmake --install build
+        cd "$RUNNER_TEMP"
+        curl -fsSL -o openssl.tar.gz \
+          https://github.com/openssl/openssl/releases/download/openssl-3.5.0/openssl-3.5.0.tar.gz
+        tar -xzf openssl.tar.gz
+        cd openssl-3.5.0
+        ./Configure linux-aarch64 \
+          --prefix="$SYSROOT/usr" \
+          --openssldir="$SYSROOT/usr/ssl" \
+          CC=aarch64-linux-gnu-gcc \
+          AR=aarch64-linux-gnu-ar \
+          RANLIB=aarch64-linux-gnu-ranlib \
+          no-tests no-docs shared -fPIC
+        make -j $(nproc)
+        make install_sw install_ssldirs
         echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
 
     - name: 构建GmSSL
@@ -402,21 +416,16 @@ jobs:
         cd src/postgresql-18
         chmod +x configure
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
-          GMSSL_LIB="${{ github.workspace }}/build/gmssl/lib"
-          if [ ! -f "$GMSSL_LIB/libcrypto.a" ] && [ ! -f "$GMSSL_LIB/libcrypto.so" ]; then
-            GMSSL_LIB="$(dirname "$(find "${{ github.workspace }}/build/gmssl" -name 'libcrypto.*' -print -quit)")"
-          fi
-          echo "使用GmSSL库目录: $GMSSL_LIB"
-          export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include -I${{ github.workspace }}/build/gmssl/include"
-          export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L$GMSSL_LIB"
+          export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include"
+          export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L${{ env.SYSROOT }}/usr/lib64"
           export PKG_CONFIG_LIBDIR=${{ env.SYSROOT }}/usr/lib/pkgconfig
           export PKG_CONFIG_PATH=
           ./configure \
             --host=${{ matrix.cpu.host }} \
             --prefix=${{ github.workspace }}/build/cnmd \
             --with-ssl=openssl \
-            --with-includes=${{ github.workspace }}/build/gmssl/include \
-            --with-libraries=$GMSSL_LIB \
+            --with-includes=${{ env.SYSROOT }}/usr/include \
+            --with-libraries=${{ env.SYSROOT }}/usr/lib \
             --enable-integer-datetimes \
             --without-readline \
             --without-icu \
