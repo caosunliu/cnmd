@@ -320,11 +320,6 @@ jobs:
     strategy:
       matrix:
         cpu:
-          - name: 龙芯LoongArch
-            arch: loongarch64
-            cross_compile: loongarch64-linux-gnu-
-            host: loongarch64-linux-gnu
-            qemu_platform: linux/loongarch64
           - name: 飞腾Phytium
             arch: arm64
             cross_compile: aarch64-linux-gnu-
@@ -353,9 +348,7 @@ jobs:
     - name: 安装交叉编译工具链
       run: |
         sudo apt-get update
-        if [ "${{ matrix.cpu.arch }}" = "loongarch64" ]; then
-          sudo apt-get install -y gcc-loongarch64-linux-gnu g++-loongarch64-linux-gnu
-        elif [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
+        if [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
         fi
 
