@@ -47,16 +47,19 @@ RUN echo "构建架构: $(uname -m)" && \
     echo "基础镜像: ${BASE_IMAGE}" && \
     gcc --version | head -n1
 
-# 构建GmSSL
+# 构建Tongsuo（OpenSSL兼容，含国密）
 RUN cd /build/cnmd/src && \
-    wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz" -O gmssl-3.2.0.tar.gz && \
-    tar -xzf gmssl-3.2.0.tar.gz && \
-    rm -f gmssl-3.2.0.tar.gz && \
-    cd GmSSL-3.2.0 && \
-    mkdir -p build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=/build/cnmd/build/gmssl -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
+    wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -O tongsuo-8.4.0.tar.gz && \
+    tar -xzf tongsuo-8.4.0.tar.gz && \
+    rm -f tongsuo-8.4.0.tar.gz && \
+    cd Tongsuo-8.4.0 && \
+    ./config \
+        --prefix=/build/cnmd/build/tongsuo \
+        --openssldir=/build/cnmd/build/tongsuo/ssl \
+        enable-sm2 enable-sm3 enable-sm4 \
+        no-tests no-docs && \
     make -j$(nproc) && \
-    make install
+    make install_dev
 
 # 构建CNMD
 RUN cd /build/cnmd/src/postgresql-18 && \
@@ -64,8 +67,8 @@ RUN cd /build/cnmd/src/postgresql-18 && \
     ./configure \
         --prefix=/build/cnmd/build/cnmd \
         --with-ssl=openssl \
-        --with-includes=/build/cnmd/build/gmssl/include \
-        --with-libraries=/build/cnmd/build/gmssl/lib \
+        --with-includes=/build/cnmd/build/tongsuo/include \
+        --with-libraries=/build/cnmd/build/tongsuo/lib \
         --enable-integer-datetimes \
         --without-readline \
         --with-libxml \
@@ -93,11 +96,11 @@ RUN if [ -f /etc/debian_version ]; then \
 
 # 从构建镜像复制安装文件
 COPY --from=builder /build/cnmd/build/cnmd /usr/local/cnmd
-COPY --from=builder /build/cnmd/build/gmssl /usr/local/gmssl
+COPY --from=builder /build/cnmd/build/tongsuo /usr/local/tongsuo
 
 # 设置环境变量
-ENV PATH="/usr/local/cnmd/bin:/usr/local/gmssl/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/gmssl/lib:${LD_LIBRARY_PATH}"
+ENV PATH="/usr/local/cnmd/bin:/usr/local/tongsuo/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/tongsuo/lib:${LD_LIBRARY_PATH}"
 
 # 创建用户和目录
 RUN groupadd -r cnmd 2>/dev/null || true && \

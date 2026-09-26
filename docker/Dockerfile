@@ -44,9 +44,9 @@ COPY scripts/ /build/scripts/
 COPY patches/ /build/patches/
 COPY config/ /build/config/
 
-# 构建GmSSL
-RUN chmod +x /build/scripts/build-gmssl.sh && \
-    /build/scripts/build-gmssl.sh 3.2.0
+# 构建Tongsuo（OpenSSL兼容，含国密）
+RUN chmod +x /build/scripts/build-tongsuo.sh && \
+    /build/scripts/build-tongsuo.sh 8.4.0
 
 # 获取PostgreSQL源码
 RUN git clone --branch REL_18_6 --depth 1 \
@@ -85,11 +85,11 @@ RUN locale-gen zh_CN.UTF-8 && \
 
 # 从构建镜像复制安装文件
 COPY --from=builder /usr/local/cnmd /usr/local/cnmd
-COPY --from=builder /usr/local/gmssl /usr/local/gmssl
+COPY --from=builder /usr/local/tongsuo /usr/local/tongsuo
 
 # 设置环境变量
-ENV PATH="/usr/local/cnmd/bin:/usr/local/gmssl/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/gmssl/lib:${LD_LIBRARY_PATH}"
+ENV PATH="/usr/local/cnmd/bin:/usr/local/tongsuo/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/tongsuo/lib:${LD_LIBRARY_PATH}"
 
 # 创建用户和目录
 RUN groupadd -r cnmd && \

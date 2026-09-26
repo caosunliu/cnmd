@@ -1,27 +1,27 @@
 #!/bin/bash
 #
-# build-gmssl.sh - 编译安装GmSSL国密算法库
+# build-tongsuo.sh - 编译安装Tongsuo国密SSL库（OpenSSL兼容）
 #
-# 用法: ./build-gmssl.sh [版本号]
-# 默认版本: 3.2.0
+# 用法: ./build-tongsuo.sh [版本号]
+# 默认版本: 8.4.0
 #
 
 set -e
 
-GMSSL_VERSION=${1:-3.2.0}
-GMSSL_DIR="GmSSL-${GMSSL_VERSION}"
-INSTALL_PREFIX="/usr/local/gmssl"
+TONGSUO_VERSION=${1:-8.4.0}
+TONGSUO_DIR="Tongsuo-${TONGSUO_VERSION}"
+INSTALL_PREFIX="/usr/local/tongsuo"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo "=========================================="
-echo "  GmSSL 国密算法库编译安装脚本"
-echo "  版本: ${GMSSL_VERSION}"
+echo "  Tongsuo 国密SSL库编译安装脚本"
+echo "  版本: ${TONGSUO_VERSION}"
 echo "=========================================="
 
 # 检查是否已安装
 if [ -d "${INSTALL_PREFIX}" ]; then
-    echo "[警告] GmSSL已安装在 ${INSTALL_PREFIX}"
+    echo "[警告] Tongsuo已安装在 ${INSTALL_PREFIX}"
     read -p "是否重新编译安装? (y/n): " confirm
     if [ "$confirm" != "y" ]; then
         echo "跳过安装"
@@ -33,35 +33,32 @@ fi
 # 进入源码目录
 cd "${PROJECT_ROOT}/src"
 
-# 下载GmSSL（如果不存在）
-if [ ! -d "${GMSSL_DIR}" ]; then
-    echo "[信息] 下载GmSSL ${GMSSL_VERSION}..."
-    wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v${GMSSL_VERSION}.tar.gz" -O "gmssl-${GMSSL_VERSION}.tar.gz"
-    tar -xzf "gmssl-${GMSSL_VERSION}.tar.gz"
-    rm -f "gmssl-${GMSSL_VERSION}.tar.gz"
+# 下载Tongsuo（如果不存在）
+if [ ! -d "${TONGSUO_DIR}" ]; then
+    echo "[信息] 下载Tongsuo ${TONGSUO_VERSION}..."
+    wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/${TONGSUO_VERSION}.tar.gz" -O "tongsuo-${TONGSUO_VERSION}.tar.gz"
+    tar -xzf "tongsuo-${TONGSUO_VERSION}.tar.gz"
+    rm -f "tongsuo-${TONGSUO_VERSION}.tar.gz"
 fi
 
-# 进入编译目录
-cd "${GMSSL_DIR}"
-
-# 创建构建目录
-mkdir -p build && cd build
+# 进入源码目录
+cd "${TONGSUO_DIR}"
 
 # 配置
-echo "[信息] 配置GmSSL..."
-cmake .. \
-    -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_SHARED_LIBS=ON \
-    -DBUILD_TESTING=OFF
+echo "[信息] 配置Tongsuo..."
+./config \
+    --prefix="${INSTALL_PREFIX}" \
+    --openssldir="${INSTALL_PREFIX}/ssl" \
+    enable-sm2 enable-sm3 enable-sm4 \
+    no-tests no-docs
 
 # 编译
-echo "[信息] 编译GmSSL..."
+echo "[信息] 编译Tongsuo..."
 make -j$(nproc)
 
-# 安装
-echo "[信息] 安装GmSSL..."
-sudo make install
+# 安装开发文件（头文件+库）
+echo "[信息] 安装Tongsuo..."
+sudo make install_dev
 
 # 更新动态链接库缓存
 echo "[信息] 更新动态链接库缓存..."
@@ -69,7 +66,7 @@ sudo ldconfig
 
 echo ""
 echo "=========================================="
-echo "  GmSSL安装完成!"
+echo "  Tongsuo安装完成!"
 echo "  安装路径: ${INSTALL_PREFIX}"
 echo "=========================================="
 echo ""

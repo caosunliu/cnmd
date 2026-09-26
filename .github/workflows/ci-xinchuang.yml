@@ -49,7 +49,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  GMSSL_VERSION: '3.2.0'
+  TONGSUO_VERSION: '8.4.0'
   POSTGRES_VERSION: '18'
 
 jobs:
@@ -370,46 +370,32 @@ jobs:
           -DZLIB_BUILD_EXAMPLES=OFF
         cmake --build build -j $(nproc)
         cmake --install build
-        cd "$RUNNER_TEMP"
-        curl -fsSL -o openssl.tar.gz \
-          https://github.com/openssl/openssl/releases/download/openssl-3.5.0/openssl-3.5.0.tar.gz
-        tar -xzf openssl.tar.gz
-        cd openssl-3.5.0
-        ./Configure linux-aarch64 \
-          --prefix="$SYSROOT/usr" \
-          --openssldir="$SYSROOT/usr/ssl" \
-          CC=aarch64-linux-gnu-gcc \
-          AR=aarch64-linux-gnu-ar \
-          RANLIB=aarch64-linux-gnu-ranlib \
-          no-tests no-docs shared -fPIC
-        make -j $(nproc)
-        make install_sw install_ssldirs
         echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
 
-    - name: 构建GmSSL
+    - name: 构建Tongsuo
       run: |
         cd src
-        wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v${{ env.GMSSL_VERSION }}.tar.gz" -O gmssl.tar.gz
-        tar -xzf gmssl.tar.gz
-        cd GmSSL-${{ env.GMSSL_VERSION }}
-        mkdir -p build && cd build
+        wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/${{ env.TONGSUO_VERSION }}.tar.gz" -O tongsuo.tar.gz
+        tar -xzf tongsuo.tar.gz
+        cd Tongsuo-${{ env.TONGSUO_VERSION }}
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
-          cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/arm64-toolchain.cmake" \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/gmssl \
-            -DCMAKE_BUILD_TYPE=Release
+          ./Configure linux-aarch64 \
+            --prefix=${{ github.workspace }}/build/tongsuo \
+            --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
+            CC=aarch64-linux-gnu-gcc \
+            AR=aarch64-linux-gnu-ar \
+            RANLIB=aarch64-linux-gnu-ranlib \
+            enable-sm2 enable-sm3 enable-sm4 \
+            no-tests no-docs shared -fPIC
         else
-          cmake .. \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/gmssl \
-            -DCMAKE_BUILD_TYPE=Release
+          ./config \
+            --prefix=${{ github.workspace }}/build/tongsuo \
+            --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
+            enable-sm2 enable-sm3 enable-sm4 \
+            no-tests no-docs
         fi
         make -j$(nproc)
-        make install
-        echo "=== GmSSL 安装产物 ==="
-        find "${{ github.workspace }}/build/gmssl" -name 'lib*' -o -name '*.h' | head -30
-        find "${{ github.workspace }}/build/gmssl" -name 'libcrypto*' -exec file {} \;
+        make install_dev
 
     - name: 构建CNMD
       run: |
@@ -424,8 +410,8 @@ jobs:
             --host=${{ matrix.cpu.host }} \
             --prefix=${{ github.workspace }}/build/cnmd \
             --with-ssl=openssl \
-            --with-includes=${{ env.SYSROOT }}/usr/include \
-            --with-libraries=${{ env.SYSROOT }}/usr/lib \
+            --with-includes=${{ github.workspace }}/build/tongsuo/include \
+            --with-libraries=${{ github.workspace }}/build/tongsuo/lib \
             --enable-integer-datetimes \
             --without-readline \
             --without-icu \
@@ -448,7 +434,7 @@ jobs:
         name: cnmd-${{ matrix.cpu.name }}
         path: |
           build/cnmd/
-          build/gmssl/
+          build/tongsuo/
         retention-days: 7
 
   # ============================================

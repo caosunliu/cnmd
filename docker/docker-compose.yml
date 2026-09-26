@@ -27,8 +27,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # 可选：GmSSL证书生成服务
-  gmssl-certs:
+  # 可选：Tongsuo证书生成服务
+  tongsuo-certs:
     build:
       context: ..
       dockerfile: docker/Dockerfile

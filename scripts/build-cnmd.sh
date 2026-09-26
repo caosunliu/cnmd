@@ -5,7 +5,7 @@
 # 用法: ./build-cnmd.sh [选项]
 #   -p, --prefix DIR     安装路径 (默认: /usr/local/cnmd)
 #   -j, --jobs N         并行编译数 (默认: CPU核心数)
-#   --with-gmssl DIR     GmSSL安装路径 (默认: /usr/local/gmssl)
+#   --with-tongsuo DIR    Tongsuo安装路径 (默认: /usr/local/tongsuo)
 #   --debug              启用调试模式
 #   --mysql-compat       启用MySQL兼容模式
 #   -h, --help           显示帮助
@@ -16,7 +16,7 @@ set -e
 # 默认参数
 PREFIX="/usr/local/cnmd"
 JOBS=$(nproc)
-GMSSL_PREFIX="/usr/local/gmssl"
+TONGSUO_PREFIX="/usr/local/tongsuo"
 DEBUG=false
 MYSQL_COMPAT=true
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -34,8 +34,8 @@ while [[ $# -gt 0 ]]; do
             JOBS="$2"
             shift 2
             ;;
-        --with-gmssl)
-            GMSSL_PREFIX="$2"
+        --with-tongsuo)
+            TONGSUO_PREFIX="$2"
             shift 2
             ;;
         --debug)
@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
             echo "选项:"
             echo "  -p, --prefix DIR     安装路径 (默认: /usr/local/cnmd)"
             echo "  -j, --jobs N         并行编译数 (默认: CPU核心数)"
-            echo "  --with-gmssl DIR     GmSSL安装路径 (默认: /usr/local/gmssl)"
+            echo "  --with-tongsuo DIR    Tongsuo安装路径 (默认: /usr/local/tongsuo)"
             echo "  --debug              启用调试模式"
             echo "  --mysql-compat       启用MySQL兼容模式"
             echo "  -h, --help           显示帮助"
@@ -73,14 +73,14 @@ echo ""
 echo "编译配置:"
 echo "  安装路径: ${PREFIX}"
 echo "  并行编译: ${JOBS}线程"
-echo "  GmSSL路径: ${GMSSL_PREFIX}"
+echo "  Tongsuo路径: ${TONGSUO_PREFIX}"
 echo "  调试模式: ${DEBUG}"
 echo "  MySQL兼容: ${MYSQL_COMPAT}"
 echo ""
 
-# 检查GmSSL
-if [ ! -d "${GMSSL_PREFIX}" ]; then
-    echo "[错误] GmSSL未安装，请先运行: ./scripts/build-gmssl.sh"
+# 检查Tongsuo
+if [ ! -d "${TONGSUO_PREFIX}" ]; then
+    echo "[错误] Tongsuo未安装，请先运行: ./scripts/build-tongsuo.sh"
     exit 1
 fi
 
@@ -107,8 +107,8 @@ echo "[信息] 配置编译选项..."
 CONFIGURE_OPTS=(
     --prefix="${PREFIX}"
     --with-ssl=openssl
-    --with-includes="${GMSSL_PREFIX}/include"
-    --with-libraries="${GMSSL_PREFIX}/lib"
+    --with-includes="${TONGSUO_PREFIX}/include"
+    --with-libraries="${TONGSUO_PREFIX}/lib"
     --enable-integer-datetimes
     --enable-thread-safety
     --enable-debug
