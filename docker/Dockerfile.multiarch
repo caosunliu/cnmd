@@ -50,7 +50,10 @@ RUN echo "构建架构: $(uname -m)" && \
 # 下载PostgreSQL源码
 RUN mkdir -p /build/cnmd/src && \
     cd /build/cnmd/src && \
-    git clone --depth 1 --branch master https://github.com/postgres/postgres.git postgresql-18
+    wget --no-check-certificate -q "https://github.com/postgres/postgres/archive/refs/heads/master.tar.gz" -O postgresql-18.tar.gz && \
+    tar -xzf postgresql-18.tar.gz && \
+    mv postgres-master postgresql-18 && \
+    rm -f postgresql-18.tar.gz
 
 # 构建GmSSL
 RUN cd /build/cnmd/src && \
