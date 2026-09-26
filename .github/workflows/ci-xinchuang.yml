@@ -375,6 +375,7 @@ jobs:
     - name: 构建Tongsuo
       run: |
         cd src/Tongsuo-${{ env.TONGSUO_VERSION }}
+        chmod +x config Configure
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
           ./Configure linux-aarch64 \
             --prefix=${{ github.workspace }}/build/tongsuo \

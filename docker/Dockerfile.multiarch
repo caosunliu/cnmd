@@ -49,6 +49,7 @@ RUN echo "构建架构: $(uname -m)" && \
 
 # 构建Tongsuo（OpenSSL兼容，含国密）
 RUN cd /build/cnmd/src/Tongsuo-8.4.0 && \
+    chmod +x config && \
     ./config \
         --prefix=/build/cnmd/build/tongsuo \
         --openssldir=/build/cnmd/build/tongsuo/ssl \

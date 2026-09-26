@@ -42,6 +42,7 @@ cd "${TONGSUO_SRC}"
 
 # 配置
 echo "[信息] 配置Tongsuo..."
+chmod +x config
 ./config \
     --prefix="${INSTALL_PREFIX}" \
     --openssldir="${INSTALL_PREFIX}/ssl" \

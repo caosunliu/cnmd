@@ -47,6 +47,7 @@ COPY src/Tongsuo-8.4.0 /build/src/Tongsuo-8.4.0
 
 # 构建Tongsuo（OpenSSL兼容，含国密）
 RUN cd /build/src/Tongsuo-8.4.0 && \
+    chmod +x config && \
     ./config \
         --prefix=/usr/local/tongsuo \
         --openssldir=/usr/local/tongsuo/ssl \

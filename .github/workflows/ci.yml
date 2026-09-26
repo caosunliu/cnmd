@@ -59,6 +59,7 @@ jobs:
     - name: 构建Tongsuo
       run: |
         cd src/Tongsuo-8.4.0
+        chmod +x config
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
           --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
@@ -166,6 +167,7 @@ jobs:
     - name: 构建Tongsuo
       run: |
         cd src/Tongsuo-8.4.0
+        chmod +x config
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
           --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
