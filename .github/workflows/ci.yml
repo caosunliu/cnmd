@@ -138,6 +138,7 @@ jobs:
         cmake .. -DCMAKE_INSTALL_PREFIX=$WORKSPACE/build/gmssl -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
         mingw32-make -j4
         mingw32-make install
+      shell: bash
 
     - name: 构建CNMD
       run: |
@@ -153,6 +154,7 @@ jobs:
           --enable-integer-datetimes \
           --without-readline
         mingw32-make -j4
+      shell: bash
       shell: bash
 
     - name: 上传构建产物
