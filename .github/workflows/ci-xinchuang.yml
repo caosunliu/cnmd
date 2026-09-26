@@ -338,7 +338,13 @@ jobs:
           zlib1g-dev libicu-dev uuid-dev
         if [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
           sudo dpkg --add-architecture arm64
-          sudo apt-get update
+          printf 'deb [arch=arm64] http://archive.ubuntu.com/ubuntu noble main universe\ndeb [arch=arm64] http://archive.ubuntu.com/ubuntu noble-updates main universe\ndeb [arch=arm64] http://archive.ubuntu.com/ubuntu noble-security main universe\n' \
+            | sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null
+          sudo apt-get update \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/arm64.list \
+            -o Dir::Etc::sourceparts=/dev/null \
+            -o APT::Get::List-Cleanup=0 \
+            -o Acquire::Retries=3
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             zlib1g-dev:arm64 libicu-dev:arm64 uuid-dev:arm64
         fi
