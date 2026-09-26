@@ -134,7 +134,7 @@ jobs:
         mkdir build
         cd build
         cmake .. -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/gmssl -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
-        mingw32-make -j%NUMBER_OF_PROCESSORS%
+        mingw32-make -j4
         mingw32-make install
       shell: bash
 
@@ -150,7 +150,7 @@ jobs:
           --with-libraries=${{ github.workspace }}/build/gmssl/lib \
           --enable-integer-datetimes \
           --without-readline
-        mingw32-make -j%NUMBER_OF_PROCESSORS%
+        mingw32-make -j4
       shell: bash
 
     - name: 上传构建产物
