@@ -74,6 +74,7 @@ RUN cd /build/cnmd/src/postgresql-18 && \
         --with-includes=/build/cnmd/build/gmssl/include \
         --with-libraries=/build/cnmd/build/gmssl/lib \
         --enable-integer-datetimes \
+        --without-readline \
         --with-libxml \
         --with-libxslt \
         --with-uuid-ossp && \
