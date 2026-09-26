@@ -393,16 +393,22 @@ jobs:
         fi
         make -j$(nproc)
         make install
-        ls -l "${{ github.workspace }}/build/gmssl/lib"
-        file "${{ github.workspace }}/build/gmssl/lib/"libcrypto* || true
+        echo "=== GmSSL 安装产物 ==="
+        find "${{ github.workspace }}/build/gmssl" -name 'lib*' -o -name '*.h' | head -30
+        find "${{ github.workspace }}/build/gmssl" -name 'libcrypto*' -exec file {} \;
 
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
         chmod +x configure
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
-          export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include"
-          export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L${{ github.workspace }}/build/gmssl/lib"
+          GMSSL_LIB="${{ github.workspace }}/build/gmssl/lib"
+          if [ ! -f "$GMSSL_LIB/libcrypto.a" ] && [ ! -f "$GMSSL_LIB/libcrypto.so" ]; then
+            GMSSL_LIB="$(dirname "$(find "${{ github.workspace }}/build/gmssl" -name 'libcrypto.*' -print -quit)")"
+          fi
+          echo "使用GmSSL库目录: $GMSSL_LIB"
+          export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include -I${{ github.workspace }}/build/gmssl/include"
+          export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L$GMSSL_LIB"
           export PKG_CONFIG_LIBDIR=${{ env.SYSROOT }}/usr/lib/pkgconfig
           export PKG_CONFIG_PATH=
           ./configure \
@@ -410,11 +416,11 @@ jobs:
             --prefix=${{ github.workspace }}/build/cnmd \
             --with-ssl=openssl \
             --with-includes=${{ github.workspace }}/build/gmssl/include \
-            --with-libraries=${{ github.workspace }}/build/gmssl/lib \
+            --with-libraries=$GMSSL_LIB \
             --enable-integer-datetimes \
             --without-readline \
             --without-icu \
-            || { echo "=== configure 失败，config.log 末尾 ==="; tail -n 60 config.log; exit 1; }
+            || { echo "=== configure 失败诊断 ==="; grep -B5 -A 30 'CRYPTO_new_ex_data' config.log | head -80; echo "--- ld 报错 ---"; grep -i 'cannot find\|incompatible\|undefined ref' config.log | head -20; exit 1; }
         else
           ./configure \
             --prefix=${{ github.workspace }}/build/cnmd \
