@@ -112,10 +112,13 @@ jobs:
       run: |
         WORKSPACE=$(cygpath -u "${{ github.workspace }}")
         cd src/Tongsuo-8.4.0
-        mkdir -p build && cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX=$WORKSPACE/build/tongsuo -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
-        mingw32-make -j4
-        mingw32-make install
+        chmod +x config Configure
+        ./config \
+          --prefix=$WORKSPACE/build/tongsuo \
+          --openssldir=$WORKSPACE/build/tongsuo/ssl \
+          enable-sm2 enable-sm3 enable-sm4
+        make -j4
+        make install_dev
       shell: bash
 
     - name: 构建CNMD
