@@ -49,8 +49,7 @@ echo "[信息] 配置Tongsuo..."
 ./config \
     --prefix="${INSTALL_PREFIX}" \
     --openssldir="${INSTALL_PREFIX}/ssl" \
-    enable-sm2 enable-sm3 enable-sm4 \
-    no-tests
+    enable-sm2 enable-sm3 enable-sm4
 
 # 编译
 echo "[信息] 编译Tongsuo..."

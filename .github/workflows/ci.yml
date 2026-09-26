@@ -65,8 +65,7 @@ jobs:
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
           --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-          enable-sm2 enable-sm3 enable-sm4 \
-          no-tests
+          enable-sm2 enable-sm3 enable-sm4
         make -j$(nproc)
         make install_dev
 
@@ -121,8 +120,7 @@ jobs:
         ./config \
           --prefix=$WORKSPACE/build/tongsuo \
           --openssldir=$WORKSPACE/build/tongsuo/ssl \
-          enable-sm2 enable-sm3 enable-sm4 \
-          no-tests
+          enable-sm2 enable-sm3 enable-sm4
         mingw32-make -j4
         mingw32-make install_dev
       shell: bash
@@ -182,8 +180,7 @@ jobs:
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
           --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-          enable-sm2 enable-sm3 enable-sm4 \
-          no-tests
+          enable-sm2 enable-sm3 enable-sm4
         make -j$(sysctl -n hw.ncpu)
         make install_dev
 

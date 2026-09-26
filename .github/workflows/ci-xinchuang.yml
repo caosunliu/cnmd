@@ -385,15 +385,12 @@ jobs:
             CC=aarch64-linux-gnu-gcc \
             AR=aarch64-linux-gnu-ar \
             RANLIB=aarch64-linux-gnu-ranlib \
-            enable-sm2 enable-sm3 enable-sm4 \
-            no-tests shared -fPIC
+            enable-sm2 enable-sm3 enable-sm4 shared -fPIC
         else
           ./config \
             --prefix=${{ github.workspace }}/build/tongsuo \
             --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-            enable-sm2 enable-sm3 enable-sm4 \
-            no-tests
-        fi
+          enable-sm2 enable-sm3 enable-sm4
         make -j$(nproc)
         make install_dev
 

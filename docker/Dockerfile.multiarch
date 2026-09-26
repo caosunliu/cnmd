@@ -56,8 +56,7 @@ RUN cd /build/cnmd/src && \
     ./config \
         --prefix=/build/cnmd/build/tongsuo \
         --openssldir=/build/cnmd/build/tongsuo/ssl \
-        enable-sm2 enable-sm3 enable-sm4 \
-        no-tests && \
+        enable-sm2 enable-sm3 enable-sm4 && \
     make -j$(nproc) && \
     make install_dev
 
