@@ -380,6 +380,7 @@ jobs:
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
+        chmod +x configure
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
           ./configure \
             --host=${{ matrix.cpu.host }} \
