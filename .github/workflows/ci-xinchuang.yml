@@ -353,6 +353,9 @@ jobs:
         set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
         set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
         set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+        find_program(CMAKE_AR aarch64-linux-gnu-ar REQUIRED)
+        find_program(CMAKE_RANLIB aarch64-linux-gnu-ranlib REQUIRED)
+        find_program(CMAKE_STRIP aarch64-linux-gnu-strip REQUIRED)
         EOF
         mkdir -p "$SYSROOT/usr"
         cd "$RUNNER_TEMP"
@@ -379,9 +382,6 @@ jobs:
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
           cmake .. \
             -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/arm64-toolchain.cmake" \
-            -DCMAKE_AR=${{ matrix.cpu.cross_compile }}ar \
-            -DCMAKE_RANLIB=${{ matrix.cpu.cross_compile }}ranlib \
-            -DCMAKE_STRIP=${{ matrix.cpu.cross_compile }}strip \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/gmssl \
