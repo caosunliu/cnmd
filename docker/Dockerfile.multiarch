@@ -1,0 +1,131 @@
+# ============================================
+# CNMD 多架构信创平台 Dockerfile
+# 支持: amd64, arm64, loongarch64
+# ============================================
+
+# 参数化基础镜像
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE} AS builder
+
+# 设置环境变量
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# 架构检测
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+# 安装构建依赖 (根据架构和发行版调整)
+RUN if [ -f /etc/debian_version ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+        build-essential gcc g++ make cmake git wget curl \
+        pkg-config libreadline-dev zlib1g-dev libssl-dev \
+        libxml2-dev libxslt1-dev libsystemd-dev libicu-dev \
+        uuid-dev flex bison python3 python3-dev && \
+        rm -rf /var/lib/apt/lists/*; \
+    elif [ -f /etc/redhat-release ]; then \
+        yum groupinstall -y "Development Tools" && \
+        yum install -y gcc gcc-c++ make cmake git wget curl \
+        pkg-config readline-devel zlib-devel openssl-devel \
+        libxml2-devel libxslt-devel systemd-devel libuuid-devel \
+        flex bison python3 python3-devel && \
+        yum clean all; \
+    fi
+
+# 工作目录
+WORKDIR /build
+
+# 复制项目文件
+COPY . /build/cnmd
+
+# 设置脚本执行权限
+RUN chmod +x /build/cnmd/scripts/*.sh
+
+# 显示架构信息
+RUN echo "构建架构: $(uname -m)" && \
+    echo "基础镜像: ${BASE_IMAGE}" && \
+    gcc --version | head -n1
+
+# 构建GmSSL
+RUN cd /build/cnmd/src && \
+    if [ ! -d "GmSSL-3.2.0" ]; then \
+        wget -q "https://github.com/guanzhi/GmSSL/archive/refs/tags/v3.2.0.tar.gz" -O gmssl-3.2.0.tar.gz && \
+        tar -xzf gmssl-3.2.0.tar.gz && \
+        rm -f gmssl-3.2.0.tar.gz; \
+    fi && \
+    cd GmSSL-3.2.0 && \
+    mkdir -p build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/build/cnmd/build/gmssl -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
+    make -j$(nproc) && \
+    make install
+
+# 构建CNMD
+RUN cd /build/cnmd/src/postgresql-18 && \
+    ./configure \
+        --prefix=/build/cnmd/build/cnmd \
+        --with-ssl=openssl \
+        --with-includes=/build/cnmd/build/gmssl/include \
+        --with-libraries=/build/cnmd/build/gmssl/lib \
+        --enable-integer-datetimes \
+        --enable-thread-safety \
+        --with-libxml \
+        --with-libxslt \
+        --with-uuid-ossp && \
+    make -j$(nproc)
+
+# ============================================
+# 运行时镜像
+# ============================================
+FROM ${BASE_IMAGE} AS runtime
+
+# 安装运行时依赖
+RUN if [ -f /etc/debian_version ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+        libreadline8 zlib1g libssl3 libxml2 libxslt1.1 \
+        libsystemd0 libicu70 uuid-runtime locales && \
+        locale-gen zh_CN.UTF-8 && \
+        rm -rf /var/lib/apt/lists/*; \
+    elif [ -f /etc/redhat-release ]; then \
+        yum install -y readline zlib openssl libxml2 libxslt \
+        systemd libuuid gettext && \
+        yum clean all; \
+    fi
+
+# 从构建镜像复制安装文件
+COPY --from=builder /build/cnmd/build/cnmd /usr/local/cnmd
+COPY --from=builder /build/cnmd/build/gmssl /usr/local/gmssl
+
+# 设置环境变量
+ENV PATH="/usr/local/cnmd/bin:/usr/local/gmssl/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cnmd/lib:/usr/local/gmssl/lib:${LD_LIBRARY_PATH}"
+
+# 创建用户和目录
+RUN groupadd -r cnmd 2>/dev/null || true && \
+    useradd -r -g cnmd -d /var/lib/cnmd -s /bin/bash cnmd 2>/dev/null || true && \
+    mkdir -p /var/lib/cnmd/data /var/log/cnmd /var/run/cnmd /etc/cnmd && \
+    chown -R cnmd:cnmd /var/lib/cnmd /var/log/cnmd /var/run/cnmd /etc/cnmd
+
+# 复制配置文件
+COPY config/postgresql.conf /etc/cnmd/postgresql.conf
+COPY config/pg_hba.conf /etc/cnmd/pg_hba.conf
+
+# 设置数据目录
+VOLUME ["/var/lib/cnmd/data"]
+
+# 暴露端口
+EXPOSE 5432
+
+# 工作目录
+WORKDIR /var/lib/cnmd
+
+# 切换用户
+USER cnmd
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD /usr/local/cnmd/bin/cnmd-pg_isready -U postgres || exit 1
+
+# 启动命令
+ENTRYPOINT ["/usr/local/cnmd/bin/cnmd-pg_ctl"]
+CMD ["start", "-D", "/var/lib/cnmd/data", "-l", "/var/log/cnmd/cnmd.log"]

@@ -1,0 +1,112 @@
+{
+  "platforms": {
+    "kylin": {
+      "name": "银河麒麟V10",
+      "vendor": "麒麟软件",
+      "base_image": "kylinv10/kylin:latest",
+      "package_manager": "apt",
+      "architectures": ["amd64", "arm64"],
+      "dependencies": {
+        "build": [
+          "build-essential", "gcc", "g++", "make", "cmake",
+          "git", "wget", "curl", "pkg-config",
+          "libreadline-dev", "zlib1g-dev", "libssl-dev",
+          "libxml2-dev", "libxslt1-dev", "libsystemd-dev",
+          "libicu-dev", "uuid-dev", "flex", "bison", "python3"
+        ],
+        "runtime": [
+          "libreadline8", "zlib1g", "libssl3", "libxml2",
+          "libxslt1.1", "libsystemd0", "libicu70", "uuid-runtime"
+        ]
+      },
+      "compatibility": {
+        "certification": "GB/T 25000.51",
+        "security_level": "三级等保",
+        "national_standard": "GB/T 32905-2016"
+      }
+    },
+    "uos": {
+      "name": "统信UOS",
+      "vendor": "统信软件",
+      "base_image": "uos:latest",
+      "package_manager": "apt",
+      "architectures": ["amd64", "arm64"],
+      "dependencies": {
+        "build": [
+          "build-essential", "gcc", "g++", "make", "cmake",
+          "git", "wget", "curl", "pkg-config",
+          "libreadline-dev", "zlib1g-dev", "libssl-dev",
+          "libxml2-dev", "libxslt1-dev", "libsystemd-dev",
+          "libicu-dev", "uuid-dev", "flex", "bison", "python3"
+        ],
+        "runtime": [
+          "libreadline8", "zlib1g", "libssl3", "libxml2",
+          "libxslt1.1", "libsystemd0", "libicu70", "uuid-runtime"
+        ]
+      },
+      "compatibility": {
+        "certification": "GB/T 25000.51",
+        "security_level": "三级等保",
+        "national_standard": "GB/T 32905-2016"
+      }
+    },
+    "openeuler": {
+      "name": "openEuler欧拉",
+      "vendor": "华为",
+      "base_image": "openeuler/openeuler:22.03",
+      "package_manager": "yum",
+      "architectures": ["amd64", "arm64", "loongarch64"],
+      "dependencies": {
+        "build": [
+          "gcc", "gcc-c++", "make", "cmake", "git", "wget", "curl",
+          "pkg-config", "readline-devel", "zlib-devel", "openssl-devel",
+          "libxml2-devel", "libxslt-devel", "systemd-devel",
+          "libuuid-devel", "flex", "bison", "python3", "python3-devel"
+        ],
+        "runtime": [
+          "readline", "zlib", "openssl", "libxml2", "libxslt",
+          "systemd", "libuuid", "gettext"
+        ]
+      },
+      "compatibility": {
+        "certification": "GB/T 25000.51",
+        "security_level": "三级等保",
+        "national_standard": "GB/T 32905-2016"
+      }
+    }
+  },
+  "cpu_architectures": {
+    "loongarch64": {
+      "name": "龙芯LoongArch",
+      "vendor": "龙芯中科",
+      "cross_compile": "loongarch64-linux-gnu-",
+      "host": "loongarch64-linux-gnu",
+      "features": ["LSX", "LASX"],
+      "qemu_platform": "linux/loongarch64"
+    },
+    "arm64_phytium": {
+      "name": "飞腾ARM64",
+      "vendor": "飞腾信息",
+      "cross_compile": "aarch64-linux-gnu-",
+      "host": "aarch64-linux-gnu",
+      "features": ["NEON", "SVE"],
+      "qemu_platform": "linux/arm64"
+    },
+    "arm64_kunpeng": {
+      "name": "鲲鹏ARM64",
+      "vendor": "华为",
+      "cross_compile": "aarch64-linux-gnu-",
+      "host": "aarch64-linux-gnu",
+      "features": ["NEON", "SVE"],
+      "qemu_platform": "linux/arm64"
+    },
+    "x86_64_hygon": {
+      "name": "海光x86_64",
+      "vendor": "海光信息",
+      "cross_compile": "",
+      "host": "x86_64-linux-gnu",
+      "features": ["SSE4.2", "AVX"],
+      "qemu_platform": "linux/amd64"
+    }
+  }
+}
