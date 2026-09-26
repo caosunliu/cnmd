@@ -110,6 +110,10 @@ jobs:
     - name: 安装依赖
       uses: bwoodsend/setup-winlibs-action@v1
 
+    - name: 安装Perl依赖
+      run: cpan -i Locale::Maketext::Simple
+      shell: bash
+
     - name: 构建Tongsuo
       run: |
         WORKSPACE=$(cygpath -u "${{ github.workspace }}")
@@ -117,12 +121,10 @@ jobs:
         curl -sL "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -o tongsuo-8.4.0.tar.gz
         tar -xzf tongsuo-8.4.0.tar.gz
         cd Tongsuo-8.4.0
-        ./config \
-          --prefix=$WORKSPACE/build/tongsuo \
-          --openssldir=$WORKSPACE/build/tongsuo/ssl \
-          enable-sm2 enable-sm3 enable-sm4
+        mkdir -p build && cd build
+        cmake .. -DCMAKE_INSTALL_PREFIX=$WORKSPACE/build/tongsuo -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
         mingw32-make -j4
-        mingw32-make install_dev
+        mingw32-make install
       shell: bash
 
     - name: 构建CNMD
