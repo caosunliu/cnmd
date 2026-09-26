@@ -374,10 +374,7 @@ jobs:
 
     - name: 构建Tongsuo
       run: |
-        cd src
-        wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/${{ env.TONGSUO_VERSION }}.tar.gz" -O tongsuo-${{ env.TONGSUO_VERSION }}.tar.gz
-        tar -xzf tongsuo-${{ env.TONGSUO_VERSION }}.tar.gz
-        cd Tongsuo-${{ env.TONGSUO_VERSION }}
+        cd src/Tongsuo-${{ env.TONGSUO_VERSION }}
         chmod +x config Configure
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
           ./Configure linux-aarch64 \

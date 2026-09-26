@@ -58,10 +58,7 @@ jobs:
 
     - name: 构建Tongsuo
       run: |
-        cd src
-        wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -O tongsuo-8.4.0.tar.gz
-        tar -xzf tongsuo-8.4.0.tar.gz
-        cd Tongsuo-8.4.0
+        cd src/Tongsuo-8.4.0
         chmod +x config
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
@@ -114,10 +111,7 @@ jobs:
     - name: 构建Tongsuo
       run: |
         WORKSPACE=$(cygpath -u "${{ github.workspace }}")
-        cd src
-        curl -sL "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -o tongsuo-8.4.0.tar.gz
-        tar -xzf tongsuo-8.4.0.tar.gz
-        cd Tongsuo-8.4.0
+        cd src/Tongsuo-8.4.0
         chmod +x Configure
         perl Configure mingw64 \
           --prefix=$WORKSPACE/build/tongsuo \
@@ -175,10 +169,7 @@ jobs:
 
     - name: 构建Tongsuo
       run: |
-        cd src
-        wget -q "https://github.com/Tongsuo-Project/Tongsuo/archive/refs/tags/8.4.0.tar.gz" -O tongsuo-8.4.0.tar.gz
-        tar -xzf tongsuo-8.4.0.tar.gz
-        cd Tongsuo-8.4.0
+        cd src/Tongsuo-8.4.0
         chmod +x config
         ./config \
           --prefix=${{ github.workspace }}/build/tongsuo \
