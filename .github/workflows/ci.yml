@@ -141,10 +141,9 @@ jobs:
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
-        chmod +x configure
         mkdir build
         cd build
-        ../configure \
+        bash ../configure \
           --prefix=${{ github.workspace }}/build/cnmd \
           --with-ssl=openssl \
           --with-includes=${{ github.workspace }}/build/gmssl/include \
