@@ -118,13 +118,12 @@ jobs:
 
     - name: 下载PostgreSQL源码
       run: |
-        mkdir src
+        if (!(Test-Path src)) { mkdir src }
         cd src
         curl -sL "https://github.com/postgres/postgres/archive/refs/heads/master.tar.gz" -o postgresql-18.tar.gz
         tar -xzf postgresql-18.tar.gz
         mv postgres-master postgresql-18
         del postgresql-18.tar.gz
-      shell: pwsh
 
     - name: 构建GmSSL
       run: |
