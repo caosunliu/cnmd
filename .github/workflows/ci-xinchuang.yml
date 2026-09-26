@@ -334,20 +334,40 @@ jobs:
     - name: 安装依赖
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential flex bison perl \
+        sudo apt-get install -y build-essential flex bison perl curl \
           zlib1g-dev libicu-dev uuid-dev
         if [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
-          sudo dpkg --add-architecture arm64
-          printf 'deb [arch=arm64] http://archive.ubuntu.com/ubuntu noble main universe\ndeb [arch=arm64] http://archive.ubuntu.com/ubuntu noble-updates main universe\ndeb [arch=arm64] http://archive.ubuntu.com/ubuntu noble-security main universe\n' \
-            | sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null
-          sudo apt-get update \
-            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/arm64.list \
-            -o Dir::Etc::sourceparts=/dev/null \
-            -o APT::Get::List-Cleanup=0 \
-            -o Acquire::Retries=3
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            zlib1g-dev:arm64 libicu-dev:arm64 uuid-dev:arm64
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
         fi
+
+    - name: 准备arm64依赖库
+      if: ${{ matrix.cpu.cross_compile != '' }}
+      run: |
+        set -e
+        SYSROOT="$HOME/arm64-sysroot"
+        cat > "$RUNNER_TEMP/arm64-toolchain.cmake" <<'EOF'
+        set(CMAKE_SYSTEM_NAME Linux)
+        set(CMAKE_SYSTEM_PROCESSOR aarch64)
+        set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+        set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+        set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+        set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+        set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+        EOF
+        mkdir -p "$SYSROOT/usr"
+        cd "$RUNNER_TEMP"
+        curl -fsSL -o zlib.tar.gz \
+          https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
+        tar -xzf zlib.tar.gz
+        cd zlib-1.3.1
+        cmake -S . -B build \
+          -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/arm64-toolchain.cmake" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX="$SYSROOT/usr" \
+          -DZLIB_BUILD_EXAMPLES=OFF
+        cmake --build build -j $(nproc)
+        cmake --install build
+        echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
 
     - name: 构建GmSSL
       run: |
@@ -376,7 +396,9 @@ jobs:
         cd src/postgresql-18
         chmod +x configure
         if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
-          export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+          export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include"
+          export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L${{ github.workspace }}/build/gmssl/lib"
+          export PKG_CONFIG_LIBDIR=${{ env.SYSROOT }}/usr/lib/pkgconfig
           export PKG_CONFIG_PATH=
           ./configure \
             --host=${{ matrix.cpu.host }} \
@@ -385,7 +407,8 @@ jobs:
             --with-includes=${{ github.workspace }}/build/gmssl/include \
             --with-libraries=${{ github.workspace }}/build/gmssl/lib \
             --enable-integer-datetimes \
-            --without-readline
+            --without-readline \
+            --without-icu
         else
           ./configure \
             --prefix=${{ github.workspace }}/build/cnmd \
