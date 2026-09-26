@@ -115,8 +115,6 @@ jobs:
 
     - name: 安装依赖
       uses: bwoodsend/setup-winlibs-action@v1
-      with:
-        release: nonwindowstatic
 
     - name: 下载PostgreSQL源码
       run: |
