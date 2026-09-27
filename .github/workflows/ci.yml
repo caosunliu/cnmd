@@ -213,20 +213,17 @@ jobs:
 
     - name: 创建发布包
       run: |
-        tar -czf cnmd-1.0.0-linux-amd64.tar.gz -C artifacts/cnmd-linux-ubuntu-22.04/build cnmd
-        cd artifacts/cnmd-windows-amd64/build && 7z a ../../cnmd-1.0.0-windows-amd64.zip cnmd
-        cd ${{ github.workspace }}
-        tar -czf cnmd-1.0.0-macos-arm64.tar.gz -C artifacts/cnmd-macos-arm64/build cnmd
-        tar -czf cnmd-1.0.0-source.tar.gz --exclude='.git' .
+        tar -czf cnmd-linux-amd64.tar.gz -C artifacts/cnmd-linux-ubuntu-22.04/build cnmd
+        tar -czf cnmd-macos-arm64.tar.gz -C artifacts/cnmd-macos-arm64/build cnmd
+        tar -czf cnmd-source.tar.gz --exclude='.git' .
 
     - name: 创建Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          cnmd-1.0.0-linux-amd64.tar.gz
-          cnmd-1.0.0-windows-amd64.zip
-          cnmd-1.0.0-macos-arm64.tar.gz
-          cnmd-1.0.0-source.tar.gz
+          cnmd-linux-amd64.tar.gz
+          cnmd-macos-arm64.tar.gz
+          cnmd-source.tar.gz
         draft: false
         prerelease: false
       env:
