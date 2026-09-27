@@ -58,7 +58,8 @@ RUN cd /build/cnmd/src/postgresql-18 && \
         --with-libxml \
         --with-libxslt \
         --with-uuid-ossp && \
-    make -j$(nproc)
+    make -j$(nproc) && \
+    make install
 
 # ============================================
 # 运行时镜像
