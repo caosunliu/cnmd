@@ -136,6 +136,8 @@ jobs:
         include:
           - os: macos-latest
             arch: arm64
+          - os: macos-15
+            arch: arm64-m3
           - os: macos-13
             arch: x86_64
     runs-on: ${{ matrix.os }}
@@ -279,6 +281,8 @@ jobs:
         # macOS 包
         cp artifacts/cnmd-macos-arm64/cnmd-macos-arm64.tar.gz .
         cp artifacts/cnmd-macos-arm64/cnmd-1.0.0-arm64.pkg .
+        cp artifacts/cnmd-macos-arm64-m3/cnmd-macos-arm64-m3.tar.gz .
+        cp artifacts/cnmd-macos-arm64-m3/cnmd-1.0.0-arm64-m3.pkg .
         cp artifacts/cnmd-macos-x86_64/cnmd-macos-x86_64.tar.gz .
         cp artifacts/cnmd-macos-x86_64/cnmd-1.0.0-x86_64.pkg .
         # 源码包
@@ -293,6 +297,8 @@ jobs:
           cnmd-1.0.0-1.x86_64.rpm
           cnmd-macos-arm64.tar.gz
           cnmd-1.0.0-arm64.pkg
+          cnmd-macos-arm64-m3.tar.gz
+          cnmd-1.0.0-arm64-m3.pkg
           cnmd-macos-x86_64.tar.gz
           cnmd-1.0.0-x86_64.pkg
           cnmd-source.tar.gz
