@@ -85,6 +85,8 @@ jobs:
   # Windows构建
   build-windows:
     runs-on: windows-latest
+    env:
+      WORKSPACE: "D:/a/cnmd/cnmd"
     
     steps:
     - name: 检出代码
@@ -93,14 +95,25 @@ jobs:
     - name: 安装依赖
       uses: bwoodsend/setup-winlibs-action@v1
 
+    - name: 构建Tongsuo
+      run: |
+        cd src/Tongsuo-8.4.0
+        mkdir -p build && cd build
+        cmake .. -DCMAKE_INSTALL_PREFIX=$WORKSPACE/build/tongsuo -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles"
+        mingw32-make -j4
+        mingw32-make install
+      shell: bash
+
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
         mkdir -p build
         cd build
         bash ../configure \
-          --prefix="${{ github.workspace }}/build/cnmd" \
+          --prefix=$WORKSPACE/build/cnmd \
           --with-ssl=openssl \
+          --with-includes=$WORKSPACE/build/tongsuo/include \
+          --with-libraries=$WORKSPACE/build/tongsuo/lib \
           --enable-integer-datetimes \
           --without-readline
         mingw32-make -j4
