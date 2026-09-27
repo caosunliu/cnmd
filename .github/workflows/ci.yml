@@ -93,8 +93,13 @@ jobs:
     - name: 安装依赖
       uses: bwoodsend/setup-winlibs-action@v1
 
+    - name: 安装Bison
+      run: choco install bison -y
+      shell: cmd
+
     - name: 构建CNMD
       run: |
+        export PATH="/c/ProgramData/chocolatey/lib/bison/bin:$PATH"
         cd src/postgresql-18
         mkdir -p build
         cd build
