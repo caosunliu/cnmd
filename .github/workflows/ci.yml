@@ -93,24 +93,17 @@ jobs:
     - name: 安装依赖
       uses: bwoodsend/setup-winlibs-action@v1
 
-    - name: 安装Bison
-      run: choco install bison -y
-      shell: cmd
-
     - name: 构建CNMD
       run: |
-        export PATH="/c/ProgramData/chocolatey/lib/bison/bin:$PATH"
         cd src/postgresql-18
         mkdir -p build
         cd build
         bash ../configure \
-          --prefix="D:/opencode/cnmd/build/cnmd" \
+          --prefix=$WORKSPACE/build/cnmd \
           --with-ssl=openssl \
           --enable-integer-datetimes \
-          --without-readline \
-          --without-icu
+          --without-readline
         mingw32-make -j4
-        mingw32-make install
       shell: bash
 
     - name: 上传构建产物
