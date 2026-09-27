@@ -85,8 +85,6 @@ jobs:
   # Windows构建
   build-windows:
     runs-on: windows-latest
-    env:
-      WORKSPACE: "D:/opencode/cnmd"
     
     steps:
     - name: 检出代码
@@ -101,10 +99,11 @@ jobs:
         mkdir -p build
         cd build
         bash ../configure \
-          --prefix=$WORKSPACE/build/cnmd \
+          --prefix="${{ github.workspace }}/build/cnmd" \
           --with-ssl=openssl \
           --enable-integer-datetimes \
-          --without-readline
+          --without-readline \
+          --without-icu
         mingw32-make -j4
       shell: bash
 
