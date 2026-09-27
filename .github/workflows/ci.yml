@@ -99,19 +99,20 @@ jobs:
         mkdir -p build
         cd build
         bash ../configure \
-          --prefix="${{ github.workspace }}/build/cnmd" \
+          --prefix="D:/opencode/cnmd/build/cnmd" \
           --with-ssl=openssl \
           --enable-integer-datetimes \
           --without-readline \
           --without-icu
         mingw32-make -j4
+        mingw32-make install
       shell: bash
 
     - name: 上传构建产物
       uses: actions/upload-artifact@v4
       with:
         name: cnmd-windows-amd64
-        path: build/cnmd/
+        path: D:/opencode/cnmd/build/cnmd/
         retention-days: 7
 
   # macOS构建
