@@ -110,6 +110,7 @@ jobs:
         CNMD is a domestic database based on PostgreSQL.
 
         %install
+        mkdir -p %{buildroot}/usr/local
         cp -r %{_sourcedir}/cnmd %{buildroot}/usr/local/
 
         %files
