@@ -96,7 +96,7 @@ jobs:
     - name: 打包.rpm
       run: |
         mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-        cat > ~/rpmbuild/SPECS/cnmd.spec << EOF
+        cat > ~/rpmbuild/SPECS/cnmd.spec << 'EOF'
         Name: cnmd
         Version: 1.0.0
         Release: 1
@@ -109,17 +109,11 @@ jobs:
         %description
         CNMD is a domestic database based on PostgreSQL.
 
-        %prep
-        echo "Nothing to prep"
-
-        %build
-        echo "Nothing to build"
-
         %install
-        cp -r %{_sourcedir}/cnmd %{buildroot}/usr/
+        cp -r %{_sourcedir}/cnmd %{buildroot}/usr/local/
 
         %files
-        /usr/cnmd/*
+        /usr/local/cnmd/*
         EOF
         cp -r build/cnmd ~/rpmbuild/SOURCES/
         rpmbuild -bb ~/rpmbuild/SPECS/cnmd.spec
