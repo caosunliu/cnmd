@@ -369,6 +369,23 @@ jobs:
           -DZLIB_BUILD_EXAMPLES=OFF
         cmake --build build -j $(nproc)
         cmake --install build
+
+        # 交叉编译 OpenSSL for aarch64
+        cd "$RUNNER_TEMP"
+        curl -fsSL -o openssl.tar.gz \
+          https://github.com/openssl/openssl/releases/download/openssl-3.2.1/openssl-3.2.1.tar.gz
+        tar -xzf openssl.tar.gz
+        cd openssl-3.2.1
+        ./Configure linux-aarch64 \
+          --prefix="$SYSROOT/usr" \
+          --openssldir="$SYSROOT/usr/ssl" \
+          no-shared no-tests \
+          CC=aarch64-linux-gnu-gcc \
+          AR=aarch64-linux-gnu-ar \
+          RANLIB=aarch64-linux-gnu-ranlib
+        make -j$(nproc)
+        make install_sw
+
         echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
 
     - name: 构建CNMD
