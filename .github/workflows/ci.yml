@@ -95,12 +95,11 @@ jobs:
 
     - name: 构建CNMD
       run: |
-        WORKSPACE=$(cygpath -u "${{ github.workspace }}")
         cd src/postgresql-18
         mkdir -p build
         cd build
         bash ../configure \
-          --prefix=$WORKSPACE/build/cnmd \
+          --prefix="${{ github.workspace }}/build/cnmd" \
           --with-ssl=openssl \
           --enable-integer-datetimes \
           --without-readline
