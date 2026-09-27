@@ -56,16 +56,6 @@ jobs:
           libxml2-dev libxslt1-dev libsystemd-dev libicu-dev \
           uuid-dev flex bison python3 rpm
 
-    - name: 构建Tongsuo
-      run: |
-        cd src/Tongsuo-8.4.0
-        ./config \
-          --prefix=${{ github.workspace }}/build/tongsuo \
-          --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-          enable-sm2 enable-sm3 enable-sm4
-        make -j$(nproc)
-        make install_dev
-
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
@@ -73,8 +63,6 @@ jobs:
         ./configure \
           --prefix=${{ github.workspace }}/build/cnmd \
           --with-ssl=openssl \
-          --with-includes=${{ github.workspace }}/build/tongsuo/include \
-          --with-libraries=${{ github.workspace }}/build/tongsuo/lib \
           --enable-integer-datetimes \
           --without-readline \
           --with-libxml \
@@ -165,16 +153,6 @@ jobs:
       run: |
         brew install openssl@3 readline zlib libxml2 libxslt icu4c cmake wget
 
-    - name: 构建Tongsuo
-      run: |
-        cd src/Tongsuo-8.4.0
-        ./config \
-          --prefix=${{ github.workspace }}/build/tongsuo \
-          --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-          enable-sm2 enable-sm3 enable-sm4
-        make -j$(sysctl -n hw.ncpu)
-        make install_dev
-
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
@@ -185,8 +163,8 @@ jobs:
         ./configure \
           --prefix=${{ github.workspace }}/build/cnmd \
           --with-ssl=openssl \
-          --with-includes=$(brew --prefix openssl@3)/include:${{ github.workspace }}/build/tongsuo/include \
-          --with-libraries=$(brew --prefix openssl@3)/lib:${{ github.workspace }}/build/tongsuo/lib \
+          --with-includes=$(brew --prefix openssl@3)/include \
+          --with-libraries=$(brew --prefix openssl@3)/lib \
           --enable-integer-datetimes \
           --without-readline \
           --with-libxslt
