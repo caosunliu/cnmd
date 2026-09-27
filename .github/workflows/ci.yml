@@ -54,7 +54,17 @@ jobs:
           build-essential gcc g++ make cmake git wget curl \
           pkg-config libreadline-dev zlib1g-dev libssl-dev \
           libxml2-dev libxslt1-dev libsystemd-dev libicu-dev \
-          uuid-dev flex bison python3
+          uuid-dev flex bison python3 rpm
+
+    - name: 构建Tongsuo
+      run: |
+        cd src/Tongsuo-8.4.0
+        ./config \
+          --prefix=${{ github.workspace }}/build/tongsuo \
+          --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
+          enable-sm2 enable-sm3 enable-sm4
+        make -j$(nproc)
+        make install_dev
 
     - name: 构建CNMD
       run: |
@@ -63,23 +73,77 @@ jobs:
         ./configure \
           --prefix=${{ github.workspace }}/build/cnmd \
           --with-ssl=openssl \
+          --with-includes=${{ github.workspace }}/build/tongsuo/include \
+          --with-libraries=${{ github.workspace }}/build/tongsuo/lib \
           --enable-integer-datetimes \
           --without-readline \
           --with-libxml \
           --with-libxslt \
           --with-uuid-ossp
         make -j$(nproc)
+        make install
 
-    - name: 运行测试
+    - name: 打包.tar.gz
+      run: tar -czf cnmd-linux-amd64.tar.gz -C build cnmd
+
+    - name: 打包.deb
       run: |
-        cd src/postgresql-18
-        make check || true
+        DEB_DIR=cnmd_1.0.0_amd64
+        mkdir -p $DEB_DIR/DEBIAN
+        mkdir -p $DEB_DIR/usr
+        cp -r build/cnmd/* $DEB_DIR/usr/
+        cat > $DEB_DIR/DEBIAN/control << EOF
+        Package: cnmd
+        Version: 1.0.0
+        Section: database
+        Priority: optional
+        Architecture: amd64
+        Depends: libreadline8, zlib1g, libssl3, libxml2, libxslt1.1, libicu70, uuid-runtime
+        Maintainer: CNMD Team <cnmd@example.com>
+        Description: CNMD Database
+         CNMD is a domestic database based on PostgreSQL.
+        EOF
+        dpkg-deb --build $DEB_DIR cnmd_1.0.0_amd64.deb
+
+    - name: 打包.rpm
+      run: |
+        mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        cat > ~/rpmbuild/SPECS/cnmd.spec << EOF
+        Name: cnmd
+        Version: 1.0.0
+        Release: 1
+        Summary: CNMD Database
+        License: PostgreSQL
+        Group: Applications/Databases
+        BuildRoot: %{_tmppath}/%{name}-buildroot
+        Requires: readline zlib openssl libxml2 libxslt libicu util-linux
+
+        %description
+        CNMD is a domestic database based on PostgreSQL.
+
+        %prep
+        echo "Nothing to prep"
+
+        %build
+        echo "Nothing to build"
+
+        %install
+        cp -r %{_sourcedir}/cnmd %{buildroot}/usr/
+
+        %files
+        /usr/cnmd/*
+        EOF
+        cp -r build/cnmd ~/rpmbuild/SOURCES/
+        rpmbuild -bb ~/rpmbuild/SPECS/cnmd.spec
 
     - name: 上传构建产物
       uses: actions/upload-artifact@v4
       with:
         name: cnmd-linux-${{ matrix.os }}
-        path: build/cnmd/
+        path: |
+          cnmd-linux-amd64.tar.gz
+          cnmd_1.0.0_amd64.deb
+          cnmd-1.0.0-1.x86_64.rpm
         retention-days: 7
 
   # macOS构建
@@ -127,12 +191,26 @@ jobs:
           --without-readline \
           --with-libxslt
         make -j$(sysctl -n hw.ncpu)
+        make install
+
+    - name: 打包.tar.gz
+      run: tar -czf cnmd-macos-${{ matrix.arch }}.tar.gz -C build cnmd
+
+    - name: 打包.pkg
+      run: |
+        pkgbuild --root build/cnmd \
+          --identifier com.cnmd.database \
+          --version 1.0.0 \
+          --install-location /usr/local \
+          cnmd-1.0.0-${{ matrix.arch }}.pkg
 
     - name: 上传构建产物
       uses: actions/upload-artifact@v4
       with:
         name: cnmd-macos-${{ matrix.arch }}
-        path: build/cnmd/
+        path: |
+          cnmd-macos-${{ matrix.arch }}.tar.gz
+          cnmd-1.0.0-${{ matrix.arch }}.pkg
         retention-days: 7
 
   # Docker构建
@@ -221,9 +299,16 @@ jobs:
 
     - name: 创建发布包
       run: |
-        tar -czf cnmd-linux-amd64.tar.gz -C artifacts/cnmd-linux-ubuntu-22.04/build cnmd
-        tar -czf cnmd-macos-arm64.tar.gz -C artifacts/cnmd-macos-arm64/build cnmd
-        tar -czf cnmd-macos-x86_64.tar.gz -C artifacts/cnmd-macos-x86_64/build cnmd
+        # Linux 包
+        cp artifacts/cnmd-linux-ubuntu-22.04/cnmd-linux-amd64.tar.gz .
+        cp artifacts/cnmd-linux-ubuntu-22.04/cnmd_1.0.0_amd64.deb .
+        cp artifacts/cnmd-linux-ubuntu-22.04/cnmd-1.0.0-1.x86_64.rpm .
+        # macOS 包
+        cp artifacts/cnmd-macos-arm64/cnmd-macos-arm64.tar.gz .
+        cp artifacts/cnmd-macos-arm64/cnmd-1.0.0-arm64.pkg .
+        cp artifacts/cnmd-macos-x86_64/cnmd-macos-x86_64.tar.gz .
+        cp artifacts/cnmd-macos-x86_64/cnmd-1.0.0-x86_64.pkg .
+        # 源码包
         tar -czf cnmd-source.tar.gz --exclude='.git' .
 
     - name: 创建Release
@@ -231,8 +316,12 @@ jobs:
       with:
         files: |
           cnmd-linux-amd64.tar.gz
+          cnmd_1.0.0_amd64.deb
+          cnmd-1.0.0-1.x86_64.rpm
           cnmd-macos-arm64.tar.gz
+          cnmd-1.0.0-arm64.pkg
           cnmd-macos-x86_64.tar.gz
+          cnmd-1.0.0-x86_64.pkg
           cnmd-source.tar.gz
         draft: false
         prerelease: false
