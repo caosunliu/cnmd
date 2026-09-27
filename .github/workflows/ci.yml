@@ -84,7 +84,14 @@ jobs:
 
   # macOS构建
   build-macos:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+          - os: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.os }}
     
     steps:
     - name: 检出代码
@@ -94,14 +101,15 @@ jobs:
       run: |
         brew install openssl@3 readline zlib libxml2 libxslt icu4c cmake wget
 
-    - name: 下载PostgreSQL源码
+    - name: 构建Tongsuo
       run: |
-        mkdir -p src
-        cd src
-        wget -q "https://github.com/postgres/postgres/archive/refs/heads/master.tar.gz" -O postgresql-18.tar.gz
-        tar -xzf postgresql-18.tar.gz
-        mv postgres-master postgresql-18
-        rm -f postgresql-18.tar.gz
+        cd src/Tongsuo-8.4.0
+        ./config \
+          --prefix=${{ github.workspace }}/build/tongsuo \
+          --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
+          enable-sm2 enable-sm3 enable-sm4
+        make -j$(sysctl -n hw.ncpu)
+        make install_dev
 
     - name: 构建CNMD
       run: |
@@ -113,8 +121,8 @@ jobs:
         ./configure \
           --prefix=${{ github.workspace }}/build/cnmd \
           --with-ssl=openssl \
-          --with-includes=$(brew --prefix openssl@3)/include \
-          --with-libraries=$(brew --prefix openssl@3)/lib \
+          --with-includes=$(brew --prefix openssl@3)/include:${{ github.workspace }}/build/tongsuo/include \
+          --with-libraries=$(brew --prefix openssl@3)/lib:${{ github.workspace }}/build/tongsuo/lib \
           --enable-integer-datetimes \
           --without-readline \
           --with-libxslt
@@ -123,7 +131,7 @@ jobs:
     - name: 上传构建产物
       uses: actions/upload-artifact@v4
       with:
-        name: cnmd-macos-arm64
+        name: cnmd-macos-${{ matrix.arch }}
         path: build/cnmd/
         retention-days: 7
 
@@ -215,6 +223,7 @@ jobs:
       run: |
         tar -czf cnmd-linux-amd64.tar.gz -C artifacts/cnmd-linux-ubuntu-22.04/build cnmd
         tar -czf cnmd-macos-arm64.tar.gz -C artifacts/cnmd-macos-arm64/build cnmd
+        tar -czf cnmd-macos-x86_64.tar.gz -C artifacts/cnmd-macos-x86_64/build cnmd
         tar -czf cnmd-source.tar.gz --exclude='.git' .
 
     - name: 创建Release
@@ -223,6 +232,7 @@ jobs:
         files: |
           cnmd-linux-amd64.tar.gz
           cnmd-macos-arm64.tar.gz
+          cnmd-macos-x86_64.tar.gz
           cnmd-source.tar.gz
         draft: false
         prerelease: false
