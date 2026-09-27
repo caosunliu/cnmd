@@ -99,7 +99,7 @@ jobs:
         mkdir -p build
         cd build
         bash ../configure \
-          --prefix=$WORKSPACE/build/cnmd \
+          --prefix="${{ github.workspace }}/build/cnmd" \
           --with-ssl=openssl \
           --enable-integer-datetimes \
           --without-readline \
@@ -111,7 +111,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: cnmd-windows-amd64
-        path: D:/opencode/cnmd/build/cnmd/
+        path: build/cnmd/
         retention-days: 7
 
   # macOS构建
