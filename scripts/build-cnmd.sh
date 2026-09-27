@@ -5,7 +5,6 @@
 # 用法: ./build-cnmd.sh [选项]
 #   -p, --prefix DIR     安装路径 (默认: /usr/local/cnmd)
 #   -j, --jobs N         并行编译数 (默认: CPU核心数)
-#   --with-tongsuo DIR    Tongsuo安装路径 (默认: src/Tongsuo-8.4.0)
 #   --debug              启用调试模式
 #   --mysql-compat       启用MySQL兼容模式
 #   -h, --help           显示帮助
@@ -18,7 +17,6 @@ PREFIX="/usr/local/cnmd"
 JOBS=$(nproc)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-TONGSUO_PREFIX="${PROJECT_ROOT}/src/Tongsuo-8.4.0"
 DEBUG=false
 MYSQL_COMPAT=true
 SRC_DIR="${PROJECT_ROOT}/src/postgresql-18"
@@ -34,10 +32,6 @@ while [[ $# -gt 0 ]]; do
             JOBS="$2"
             shift 2
             ;;
-        --with-tongsuo)
-            TONGSUO_PREFIX="$2"
-            shift 2
-            ;;
         --debug)
             DEBUG=true
             shift
@@ -51,7 +45,6 @@ while [[ $# -gt 0 ]]; do
             echo "选项:"
             echo "  -p, --prefix DIR     安装路径 (默认: /usr/local/cnmd)"
             echo "  -j, --jobs N         并行编译数 (默认: CPU核心数)"
-            echo "  --with-tongsuo DIR    Tongsuo安装路径 (默认: src/Tongsuo-8.4.0)"
             echo "  --debug              启用调试模式"
             echo "  --mysql-compat       启用MySQL兼容模式"
             echo "  -h, --help           显示帮助"
@@ -73,16 +66,9 @@ echo ""
 echo "编译配置:"
 echo "  安装路径: ${PREFIX}"
 echo "  并行编译: ${JOBS}线程"
-echo "  Tongsuo路径: ${TONGSUO_PREFIX}"
 echo "  调试模式: ${DEBUG}"
 echo "  MySQL兼容: ${MYSQL_COMPAT}"
 echo ""
-
-# 检查Tongsuo
-if [ ! -d "${TONGSUO_PREFIX}" ]; then
-    echo "[错误] Tongsuo未安装，请先运行: ./scripts/build-tongsuo.sh"
-    exit 1
-fi
 
 # 检查PostgreSQL源码
 if [ ! -d "${SRC_DIR}" ]; then
@@ -107,8 +93,6 @@ echo "[信息] 配置编译选项..."
 CONFIGURE_OPTS=(
     --prefix="${PREFIX}"
     --with-ssl=openssl
-    --with-includes="${TONGSUO_PREFIX}/include"
-    --with-libraries="${TONGSUO_PREFIX}/lib"
     --enable-integer-datetimes
     --enable-thread-safety
     --enable-debug

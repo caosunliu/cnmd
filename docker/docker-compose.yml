@@ -27,8 +27,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # 可选：Tongsuo证书生成服务
-  tongsuo-certs:
+  # 可选：证书生成服务
+  certs:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -38,7 +38,7 @@ services:
     command: >
       sh -c "
         if [ ! -f /etc/cnmd/server.crt ]; then
-          echo '生成国密SSL证书...'
+          echo '生成SSL证书...'
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout /etc/cnmd/server.key \
             -out /etc/cnmd/server.crt \

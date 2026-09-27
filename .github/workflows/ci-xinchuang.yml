@@ -49,7 +49,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  TONGSUO_VERSION: '8.4.0'
   POSTGRES_VERSION: '18'
 
 jobs:
@@ -372,27 +371,6 @@ jobs:
         cmake --install build
         echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
 
-    - name: 构建Tongsuo
-      run: |
-        cd src/Tongsuo-${{ env.TONGSUO_VERSION }}
-        chmod +x config Configure
-        if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
-          ./Configure linux-aarch64 \
-            --prefix=${{ github.workspace }}/build/tongsuo \
-            --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-            CC=aarch64-linux-gnu-gcc \
-            AR=aarch64-linux-gnu-ar \
-            RANLIB=aarch64-linux-gnu-ranlib \
-            enable-sm2 enable-sm3 enable-sm4 shared -fPIC
-        else
-          ./config \
-            --prefix=${{ github.workspace }}/build/tongsuo \
-            --openssldir=${{ github.workspace }}/build/tongsuo/ssl \
-            enable-sm2 enable-sm3 enable-sm4
-        fi
-        make -j$(nproc)
-        make install_dev
-
     - name: 构建CNMD
       run: |
         cd src/postgresql-18
@@ -406,8 +384,6 @@ jobs:
             --host=${{ matrix.cpu.host }} \
             --prefix=${{ github.workspace }}/build/cnmd \
             --with-ssl=openssl \
-            --with-includes=${{ github.workspace }}/build/tongsuo/include \
-            --with-libraries=${{ github.workspace }}/build/tongsuo/lib \
             --enable-integer-datetimes \
             --without-readline \
             --without-icu \
@@ -416,8 +392,6 @@ jobs:
           ./configure \
             --prefix=${{ github.workspace }}/build/cnmd \
             --with-ssl=openssl \
-            --with-includes=${{ github.workspace }}/build/gmssl/include \
-            --with-libraries=${{ github.workspace }}/build/gmssl/lib \
             --enable-integer-datetimes \
             --without-readline
         fi
@@ -428,9 +402,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: cnmd-${{ matrix.cpu.name }}
-        path: |
-          build/cnmd/
-          build/tongsuo/
+        path: build/cnmd/
         retention-days: 7
 
   # ============================================
