@@ -102,7 +102,8 @@ jobs:
           --prefix=$WORKSPACE/build/cnmd \
           --with-ssl=openssl \
           --enable-integer-datetimes \
-          --without-readline
+          --without-readline \
+          --without-icu
         mingw32-make -j4
       shell: bash
 
