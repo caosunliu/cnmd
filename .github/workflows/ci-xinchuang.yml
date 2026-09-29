@@ -1,543 +1,227 @@
-# ============================================
-# CNMD 信创平台 CI/CD 工作流
-# 支持: 银河麒麟、统信UOS、欧拉
-# 支持: amd64、arm64、loongarch64
-# ============================================
+name: Xinchuang Build
 
-name: CNMD 信创平台构建
+on:
+  push:
+    branches: [main, master, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      build_platform:
+        description: 'Target platform'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, kylin, uos, openeuler]
+      build_arch:
+        description: 'Target architecture'
+        required: false
+        default: 'all'
+        type: choice
+        options: [all, amd64, arm64]
 
 permissions:
   contents: read
   packages: write
-  security-events: write
-  actions: read
-
-on:
-  push:
-    branches: [ main, master, develop ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
-    inputs:
-      build_platform:
-        description: '构建平台'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-        - all
-        - kylin
-        - uos
-        - openeuler
-      build_arch:
-        description: '目标架构'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-        - all
-        - amd64
-        - arm64
-        - loongarch64
-      push_images:
-        description: '推送镜像'
-        required: false
-        default: 'true'
-        type: boolean
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  POSTGRES_VERSION: '18'
 
 jobs:
-  # ============================================
-  # Job 1: 代码质量检查
-  # ============================================
+  # ===== Code Quality =====
   code-quality:
-    name: 代码质量检查
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Check C code
+        run: find src/postgresql-18/src -name "*.c" -exec grep -l "cnmd\|CNMD" {} \; | head -20 || true
 
-    - name: 代码格式检查
-      run: |
-        echo "检查C代码格式..."
-        find src/postgresql-18/src -name "*.c" -exec grep -l "cnmd\|CNMD" {} \; | head -20 || true
-
-    - name: 安全扫描
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'table'
-        exit-code: '0'
-        ignore-unfixed: true
-        severity: 'CRITICAL,HIGH'
-
-  # ============================================
-  # Job 2: 银河麒麟构建
-  # ============================================
-  build-kylin:
-    name: 银河麒麟构建
+  # ===== Docker Builds =====
+  build-docker:
     runs-on: ubuntu-latest
     needs: code-quality
-    if: ${{ github.event.inputs.build_platform == 'all' || github.event.inputs.build_platform == 'kylin' || github.event_name != 'workflow_dispatch' }}
-    
+    if: |
+      github.event.inputs.build_platform == 'all' || 
+      github.event.inputs.build_platform == matrix.platform ||
+      github.event_name != 'workflow_dispatch'
     strategy:
       matrix:
-        arch: [amd64, arm64]
         include:
-          - arch: amd64
-            platform: linux/amd64
-            kylin_image: ubuntu:22.04
-          - arch: arm64
-            platform: linux/arm64
-            kylin_image: ubuntu:22.04
+          - platform: kylin
+            arch: amd64
+            dockerfile: docker/Dockerfile.kylin
+            platform_tag: linux/amd64
+          - platform: kylin
+            arch: arm64
+            dockerfile: docker/Dockerfile.kylin
+            platform_tag: linux/arm64
+          - platform: uos
+            arch: amd64
+            dockerfile: docker/Dockerfile.uos
+            platform_tag: linux/amd64
+          - platform: openeuler
+            arch: amd64
+            dockerfile: docker/Dockerfile.openeuler
+            platform_tag: linux/amd64
+          - platform: openeuler
+            arch: arm64
+            dockerfile: docker/Dockerfile.openeuler
+            platform_tag: linux/arm64
 
     steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ matrix.platform_tag }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Version
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}" >> $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform_tag }}
+          push: ${{ github.event.inputs.push_images != 'false' }}
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ matrix.platform }}-${{ matrix.arch }}
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.platform }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}-${{ matrix.arch }}
 
-    - name: 设置QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: ${{ matrix.platform }}
-
-    - name: 设置Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: 登录Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: 登录GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: 生成版本号
-      id: version
-      run: |
-        VERSION=$(cat VERSION | tr -d '[:space:]')
-        echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "tag=${VERSION}-kylin-${{ matrix.arch }}" >> $GITHUB_OUTPUT
-
-    - name: 构建银河麒麟镜像
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: docker/Dockerfile.kylin
-        platforms: ${{ matrix.platform }}
-        push: ${{ github.event.inputs.push_images != 'false' }}
-        tags: |
-          ${{ env.IMAGE_NAME }}:kylin-${{ matrix.arch }}
-          ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-          ghcr.io/${{ env.IMAGE_NAME }}:kylin-${{ matrix.arch }}
-          ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-        labels: |
-          org.opencontainers.image.title=CNMD-kylin-${{ matrix.arch }}
-          org.opencontainers.image.description=CNMD Database for Kylin OS (${{ matrix.arch }})
-          org.opencontainers.image.version=${{ steps.version.outputs.version }}
-          org.opencontainers.image.vendor=CNMD Project
-          org.opencontainers.image.licenses=Apache-2.0
-          org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-          org.opencontainers.image.revision=${{ github.sha }}
-        cache-from: type=gha,scope=kylin-${{ matrix.arch }}
-        cache-to: type=gha,mode=max,scope=kylin-${{ matrix.arch }}
-
-    - name: 验证镜像
-      run: |
-        docker pull ghcr.io/${{ env.IMAGE_NAME }}:kylin-${{ matrix.arch }} || true
-        docker run --rm ghcr.io/${{ env.IMAGE_NAME }}:kylin-${{ matrix.arch }} cat /etc/os-release || true
-
-  # ============================================
-  # Job 3: 统信UOS构建
-  # ============================================
-  build-uos:
-    name: 统信UOS构建
-    runs-on: ubuntu-latest
-    needs: code-quality
-    if: ${{ github.event.inputs.build_platform == 'all' || github.event.inputs.build_platform == 'uos' || github.event_name != 'workflow_dispatch' }}
-    
-    strategy:
-      matrix:
-        arch: [amd64]
-        include:
-          - arch: amd64
-            platform: linux/amd64
-
-    steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
-
-    - name: 设置QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: ${{ matrix.platform }}
-
-    - name: 设置Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: 登录Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: 登录GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: 生成版本号
-      id: version
-      run: |
-        VERSION=$(cat VERSION | tr -d '[:space:]')
-        echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "tag=${VERSION}-uos-${{ matrix.arch }}" >> $GITHUB_OUTPUT
-
-    - name: 构建统信UOS镜像
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: docker/Dockerfile.uos
-        platforms: ${{ matrix.platform }}
-        push: ${{ github.event.inputs.push_images != 'false' }}
-        tags: |
-          ${{ env.IMAGE_NAME }}:uos-${{ matrix.arch }}
-          ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-          ghcr.io/${{ env.IMAGE_NAME }}:uos-${{ matrix.arch }}
-          ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-        labels: |
-          org.opencontainers.image.title=CNMD-uos-${{ matrix.arch }}
-          org.opencontainers.image.description=CNMD Database for UOS (${{ matrix.arch }})
-          org.opencontainers.image.version=${{ steps.version.outputs.version }}
-          org.opencontainers.image.vendor=CNMD Project
-          org.opencontainers.image.licenses=Apache-2.0
-        cache-from: type=gha,scope=uos-${{ matrix.arch }}
-        cache-to: type=gha,mode=max,scope=uos-${{ matrix.arch }}
-
-  # ============================================
-  # Job 4: openEuler构建
-  # ============================================
-  build-openeuler:
-    name: openEuler构建
-    runs-on: ubuntu-latest
-    needs: code-quality
-    if: ${{ github.event.inputs.build_platform == 'all' || github.event.inputs.build_platform == 'openeuler' || github.event_name != 'workflow_dispatch' }}
-    
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
-        include:
-          - arch: amd64
-            platform: linux/amd64
-          - arch: arm64
-            platform: linux/arm64
-
-    steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
-
-    - name: 设置QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: ${{ matrix.platform }}
-
-    - name: 设置Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: 登录Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: 登录GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: 生成版本号
-      id: version
-      run: |
-        VERSION=$(cat VERSION | tr -d '[:space:]')
-        echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "tag=${VERSION}-openeuler-${{ matrix.arch }}" >> $GITHUB_OUTPUT
-
-    - name: 构建openEuler镜像
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: docker/Dockerfile.openeuler
-        platforms: ${{ matrix.platform }}
-        push: ${{ github.event.inputs.push_images != 'false' }}
-        tags: |
-          ${{ env.IMAGE_NAME }}:openeuler-${{ matrix.arch }}
-          ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-          ghcr.io/${{ env.IMAGE_NAME }}:openeuler-${{ matrix.arch }}
-          ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-        labels: |
-          org.opencontainers.image.title=CNMD-openeuler-${{ matrix.arch }}
-          org.opencontainers.image.description=CNMD Database for openEuler (${{ matrix.arch }})
-          org.opencontainers.image.version=${{ steps.version.outputs.version }}
-          org.opencontainers.image.vendor=CNMD Project
-          org.opencontainers.image.licenses=Apache-2.0
-        cache-from: type=gha,scope=openeuler-${{ matrix.arch }}
-        cache-to: type=gha,mode=max,scope=openeuler-${{ matrix.arch }}
-
-  # ============================================
-  # Job 5: 国产CPU架构构建
-  # ============================================
+  # ===== Cross-compile for CPU architectures =====
   build-cpu-arch:
-    name: 国产CPU架构构建
     runs-on: ubuntu-latest
     needs: code-quality
-    if: ${{ github.event.inputs.build_arch == 'all' || github.event_name != 'workflow_dispatch' }}
-    
+    if: |
+      github.event.inputs.build_arch == 'all' || 
+      github.event_name != 'workflow_dispatch'
     strategy:
       matrix:
         cpu:
-          - name: 飞腾Phytium
+          - name: Phytium
             arch: arm64
             cross_compile: aarch64-linux-gnu-
             host: aarch64-linux-gnu
-            qemu_platform: linux/arm64
-          - name: 鲲鹏Kunpeng
+          - name: Kunpeng
             arch: arm64
             cross_compile: aarch64-linux-gnu-
             host: aarch64-linux-gnu
-            qemu_platform: linux/arm64
-          - name: 海光Hygon
+          - name: Hygon
             arch: amd64
             cross_compile: ''
             host: x86_64-linux-gnu
-            qemu_platform: linux/amd64
 
     steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential flex bison perl curl \
+            zlib1g-dev libicu-dev uuid-dev libssl-dev
+          if [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
+      - name: Build arm64 sysroot
+        if: matrix.cpu.cross_compile != ''
+        run: |
+          set -e
+          SYSROOT="$HOME/arm64-sysroot"
+          cat > "$RUNNER_TEMP/arm64-toolchain.cmake" <<'EOF'
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR aarch64)
+          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+          set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          EOF
+          mkdir -p "$SYSROOT/usr"
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o zlib.tar.gz https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
+          tar -xzf zlib.tar.gz
+          cd zlib-1.3.1
+          cmake -S . -B build \
+            -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/arm64-toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT/usr" \
+            -DZLIB_BUILD_EXAMPLES=OFF
+          cmake --build build -j $(nproc)
+          cmake --install build
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o openssl.tar.gz https://github.com/openssl/openssl/releases/download/openssl-3.2.1/openssl-3.2.1.tar.gz
+          tar -xzf openssl.tar.gz
+          cd openssl-3.2.1
+          ./Configure linux-aarch64 \
+            --prefix="$SYSROOT/usr" \
+            --openssldir="$SYSROOT/usr/ssl" \
+            no-shared no-tests \
+            CC=aarch64-linux-gnu-gcc \
+            AR=aarch64-linux-gnu-ar \
+            RANLIB=aarch64-linux-gnu-ranlib
+          make -j$(nproc)
+          make install_sw
+          echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
+      - name: Build CNMD
+        run: |
+          cd src/postgresql-18
+          chmod +x configure
+          if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
+            export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include"
+            export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L${{ env.SYSROOT }}/usr/lib64"
+            export PKG_CONFIG_LIBDIR=${{ env.SYSROOT }}/usr/lib/pkgconfig
+            export PKG_CONFIG_PATH=
+            ./configure \
+              --host=${{ matrix.cpu.host }} \
+              --prefix=${{ github.workspace }}/build/cnmd \
+              --with-ssl=openssl \
+              --enable-integer-datetimes \
+              --without-readline \
+              --without-icu
+          else
+            ./configure \
+              --prefix=${{ github.workspace }}/build/cnmd \
+              --with-ssl=openssl \
+              --enable-integer-datetimes \
+              --without-readline
+          fi
+          make -j$(nproc)
+          make install
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cnmd-${{ matrix.cpu.name }}
+          path: build/cnmd/
+          retention-days: 7
 
-    - name: 安装依赖
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential flex bison perl curl \
-          zlib1g-dev libicu-dev uuid-dev libssl-dev
-        if [ "${{ matrix.cpu.arch }}" = "arm64" ]; then
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-        fi
-
-    - name: 准备arm64依赖库
-      if: ${{ matrix.cpu.cross_compile != '' }}
-      run: |
-        set -e
-        SYSROOT="$HOME/arm64-sysroot"
-        cat > "$RUNNER_TEMP/arm64-toolchain.cmake" <<'EOF'
-        set(CMAKE_SYSTEM_NAME Linux)
-        set(CMAKE_SYSTEM_PROCESSOR aarch64)
-        set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
-        set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
-        set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-        set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-        set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-        find_program(CMAKE_AR aarch64-linux-gnu-ar REQUIRED)
-        find_program(CMAKE_RANLIB aarch64-linux-gnu-ranlib REQUIRED)
-        find_program(CMAKE_STRIP aarch64-linux-gnu-strip REQUIRED)
-        EOF
-        mkdir -p "$SYSROOT/usr"
-        cd "$RUNNER_TEMP"
-        curl -fsSL -o zlib.tar.gz \
-          https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
-        tar -xzf zlib.tar.gz
-        cd zlib-1.3.1
-        cmake -S . -B build \
-          -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/arm64-toolchain.cmake" \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX="$SYSROOT/usr" \
-          -DZLIB_BUILD_EXAMPLES=OFF
-        cmake --build build -j $(nproc)
-        cmake --install build
-
-        # 交叉编译 OpenSSL for aarch64
-        cd "$RUNNER_TEMP"
-        curl -fsSL -o openssl.tar.gz \
-          https://github.com/openssl/openssl/releases/download/openssl-3.2.1/openssl-3.2.1.tar.gz
-        tar -xzf openssl.tar.gz
-        cd openssl-3.2.1
-        ./Configure linux-aarch64 \
-          --prefix="$SYSROOT/usr" \
-          --openssldir="$SYSROOT/usr/ssl" \
-          no-shared no-tests \
-          CC=aarch64-linux-gnu-gcc \
-          AR=aarch64-linux-gnu-ar \
-          RANLIB=aarch64-linux-gnu-ranlib
-        make -j$(nproc)
-        make install_sw
-
-        echo "SYSROOT=$SYSROOT" >> "$GITHUB_ENV"
-
-    - name: 构建CNMD
-      run: |
-        cd src/postgresql-18
-        chmod +x configure
-        if [ -n "${{ matrix.cpu.cross_compile }}" ]; then
-          export CPPFLAGS="-I${{ env.SYSROOT }}/usr/include"
-          export LDFLAGS="-L${{ env.SYSROOT }}/usr/lib -L${{ env.SYSROOT }}/usr/lib64"
-          export PKG_CONFIG_LIBDIR=${{ env.SYSROOT }}/usr/lib/pkgconfig
-          export PKG_CONFIG_PATH=
-          ./configure \
-            --host=${{ matrix.cpu.host }} \
-            --prefix=${{ github.workspace }}/build/cnmd \
-            --with-ssl=openssl \
-            --enable-integer-datetimes \
-            --without-readline \
-            --without-icu \
-            || { echo "=== configure 失败诊断 ==="; grep -B5 -A 30 'CRYPTO_new_ex_data' config.log | head -80; echo "--- ld 报错 ---"; grep -i 'cannot find\|incompatible\|undefined ref' config.log | head -20; exit 1; }
-        else
-          ./configure \
-            --prefix=${{ github.workspace }}/build/cnmd \
-            --with-ssl=openssl \
-            --enable-integer-datetimes \
-            --without-readline
-        fi
-        make -j$(nproc)
-        make install
-
-    - name: 上传构建产物
-      uses: actions/upload-artifact@v4
-      with:
-        name: cnmd-${{ matrix.cpu.name }}
-        path: build/cnmd/
-        retention-days: 7
-
-  # ============================================
-  # Job 6: 生成发布清单
-  # ============================================
-  release-manifest:
-    name: 生成发布清单
+  # ===== Release =====
+  release:
     runs-on: ubuntu-latest
-    needs: [build-kylin, build-uos, build-openeuler, build-cpu-arch]
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
-    
+    needs: [build-docker, build-cpu-arch]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
-
-    - name: 生成版本号
-      id: version
-      run: |
-        VERSION=$(cat VERSION | tr -d '[:space:]')
-        TAG=${GITHUB_REF#refs/tags/}
-        echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "tag=${TAG}" >> $GITHUB_OUTPUT
-
-    - name: 创建发布清单
-      run: |
-        cat > MANIFEST.md << 'EOF'
-        # CNMD 信创数据库发布清单
-        
-        ## 版本信息
-        - 版本号: ${{ steps.version.outputs.version }}
-        - Git标签: ${{ steps.version.outputs.tag }}
-        - 构建时间: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        
-        ## 支持平台
-        
-        ### 国产操作系统
-        | 操作系统 | 架构 | 镜像标签 | 状态 |
-        |----------|------|----------|------|
-        | 银河麒麟V10 | amd64 | kylin-amd64 | ✅ 构建成功 |
-        | 银河麒麟V10 | arm64 | kylin-arm64 | ✅ 构建成功 |
-        | 统信UOS | amd64 | uos-amd64 | ✅ 构建成功 |
-        | openEuler | amd64 | openeuler-amd64 | ✅ 构建成功 |
-        | openEuler | arm64 | openeuler-arm64 | ✅ 构建成功 |
-        
-        ### 国产CPU架构
-        | CPU架构 | 厂商 | 状态 |
-        |---------|------|------|
-        | LoongArch | 龙芯 | ✅ 交叉编译 |
-        | ARM64 | 飞腾 | ✅ 交叉编译 |
-        | ARM64 | 鲲鹏 | ✅ 交叉编译 |
-        | x86_64 | 海光 | ✅ 原生编译 |
-        
-        ## 功能特性
-        - ✅ 国密算法: SM2/SM3/SM4
-        - ✅ MySQL兼容模式
-        - ✅ 安全审计日志
-        - ✅ 透明数据加密(TDE)
-        - ✅ SSL/TLS加密传输
-        
-        ## 下载链接
-        - GitHub Container Registry: ghcr.io/${{ github.repository }}
-        - Docker Hub: ${{ github.repository }}
-        
-        ## 安装指南
-        详见 [docs/installation.md](docs/installation.md)
-        EOF
-
-    - name: 创建Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          MANIFEST.md
-        draft: true
-        prerelease: false
-        body: |
-          ## CNMD ${{ steps.version.outputs.version }} - 信创数据库
-          
-          ### 支持平台
-          - 银河麒麟V10 (amd64/arm64)
-          - 统信UOS (amd64)
-          - openEuler (amd64/arm64)
-          
-          ### 国产CPU
-          - 龙芯 (LoongArch)
-          - 飞腾 (ARM64)
-          - 鲲鹏 (ARM64)
-          - 海光 (x86_64)
-          
-          ### 功能特性
-          - 国密算法: SM2/SM3/SM4
-          - MySQL兼容模式
-          - 安全审计
-          - 透明加密
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ============================================
-  # Job 7: 通知
-  # ============================================
-  notify:
-    name: 构建通知
-    runs-on: ubuntu-latest
-    needs: [build-kylin, build-uos, build-openeuler, build-cpu-arch]
-    if: always()
-    
-    steps:
-    - name: 发送构建通知
-      run: |
-        echo "=========================================="
-        echo "  CNMD 信创平台构建完成"
-        echo "=========================================="
-        echo ""
-        echo "构建状态:"
-        echo "  银河麒麟: ${{ needs.build-kylin.result }}"
-        echo "  统信UOS: ${{ needs.build-uos.result }}"
-        echo "  openEuler: ${{ needs.build-openeuler.result }}"
-        echo "  CPU架构: ${{ needs.build-cpu-arch.result }}"
-        echo ""
-        echo "镜像仓库:"
-        echo "  ghcr.io/${{ github.repository }}"
-        echo "  docker.io/${{ github.repository }}"
+      - uses: actions/checkout@v4
+      - name: Version
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+      - uses: softprops/action-gh-release@v1
+        with:
+          name: CNMD ${{ steps.version.outputs.version }} Xinchuang
+          generate_release_notes: true
+          files: MANIFEST.md
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

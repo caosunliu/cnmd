@@ -13,10 +13,6 @@ inputs:
     description: 'Parallel jobs count'
     required: false
     default: ''
-  debug:
-    description: 'Enable debug build'
-    required: false
-    default: 'false'
 
 runs:
   using: 'composite'
@@ -25,14 +21,16 @@ runs:
       if: inputs.os != 'windows'
       shell: bash
       run: |
-        cd src/gmssl
-        mkdir -p build && cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX=${{ inputs.prefix }}-deps \
-                 -DCMAKE_BUILD_TYPE=Release \
-                 -DBUILD_SHARED_LIBS=ON \
-                 -DBUILD_TESTING=OFF
-        cmake --build . --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-        cmake --install . --config Release
+        if [ ! -f "src/gmssl/build/lib/libgmssl.so" ] && [ ! -f "src/gmssl/build/lib/libgmssl.dylib" ]; then
+          cd src/gmssl
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=${{ inputs.prefix }}-deps \
+                   -DCMAKE_BUILD_TYPE=Release \
+                   -DBUILD_SHARED_LIBS=ON \
+                   -DBUILD_TESTING=OFF
+          cmake --build . --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+          cmake --install . --config Release
+        fi
 
     - name: Build GmSSL (Windows)
       if: inputs.os == 'windows'
@@ -47,17 +45,19 @@ runs:
         $gmsslBuild = "src/gmssl/build"
         $gmsslInstall = "build/gmssl-install"
         
-        New-Item -ItemType Directory -Path $gmsslBuild -Force | Out-Null
-        New-Item -ItemType Directory -Path $gmsslInstall -Force | Out-Null
-        
-        cmake -S src/gmssl -B $gmsslBuild `
-          -DCMAKE_INSTALL_PREFIX=$gmsslInstall `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DBUILD_SHARED_LIBS=ON `
-          -DBUILD_TESTING=OFF
-        
-        cmake --build $gmsslBuild --config Release --parallel $jobs
-        cmake --install $gmsslBuild --config Release
+        if (-not (Test-Path "$gmsslInstall\bin\gmssl.exe")) {
+          New-Item -ItemType Directory -Path $gmsslBuild -Force | Out-Null
+          New-Item -ItemType Directory -Path $gmsslInstall -Force | Out-Null
+          
+          cmake -S src/gmssl -B $gmsslBuild `
+            -DCMAKE_INSTALL_PREFIX=$gmsslInstall `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_SHARED_LIBS=ON `
+            -DBUILD_TESTING=OFF
+          
+          cmake --build $gmsslBuild --config Release --parallel $jobs
+          cmake --install $gmsslBuild --config Release
+        }
 
     - name: Apply CNMD patches
       shell: bash

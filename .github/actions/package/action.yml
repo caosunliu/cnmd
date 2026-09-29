@@ -6,13 +6,9 @@ inputs:
     description: 'Target OS (linux, macos, windows)'
     required: true
   arch:
-    description: 'Target architecture (amd64, arm64)'
+    description: 'Target architecture (amd64, arm64, x64)'
     required: false
     default: 'amd64'
-  prefix:
-    description: 'Installation prefix'
-    required: false
-    default: '/usr/local/cnmd'
   version:
     description: 'Package version'
     required: true
@@ -20,12 +16,11 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    # ===== Linux Packages =====
+    # ===== Linux =====
     - name: Package .tar.gz (Linux)
       if: inputs.os == 'linux'
       shell: bash
-      run: |
-        tar -czf cnmd-linux-${{ inputs.arch }}.tar.gz -C build cnmd
+      run: tar -czf cnmd-linux-${{ inputs.arch }}.tar.gz -C build cnmd
 
     - name: Package .deb
       if: inputs.os == 'linux'
@@ -76,12 +71,11 @@ runs:
         cp -r build/cnmd ~/rpmbuild/SOURCES/
         rpmbuild -bb ~/rpmbuild/SPECS/cnmd.spec
 
-    # ===== macOS Packages =====
+    # ===== macOS =====
     - name: Package .tar.gz (macOS)
       if: inputs.os == 'macos'
       shell: bash
-      run: |
-        tar -czf cnmd-macos-${{ inputs.arch }}.tar.gz -C build cnmd
+      run: tar -czf cnmd-macos-${{ inputs.arch }}.tar.gz -C build cnmd
 
     - name: Package .pkg
       if: inputs.os == 'macos'
@@ -93,76 +87,50 @@ runs:
           --install-location /usr/local \
           cnmd-${{ inputs.version }}-${{ inputs.arch }}.pkg
 
-    # ===== Windows Packages =====
-    - name: Package portable .zip (Windows)
+    # ===== Windows =====
+    - name: Package .zip (Windows)
       if: inputs.os == 'windows'
       shell: pwsh
-      run: |
-        Compress-Archive -Path build\cnmd -DestinationPath cnmd-${{ inputs.version }}-windows-${{ inputs.arch }}-portable.zip
+      run: Compress-Archive -Path build\cnmd -DestinationPath cnmd-${{ inputs.version }}-windows-${{ inputs.arch }}-portable.zip
 
     - name: Package .exe (NSIS)
       if: inputs.os == 'windows'
       shell: pwsh
       run: |
-        $nsisPaths = @(
-          "$env:ProgramFiles\NSIS\makensis.exe",
-          "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
-        )
-        $nsis = $nsisPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($nsis) {
+        $nsis = "$env:ProgramFiles\NSIS\makensis.exe"
+        if (-not (Test-Path $nsis)) { $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
+        if (Test-Path $nsis) {
           & $nsis /DPRODUCT_VERSION=${{ inputs.version }} installer\windows\cnmd.nsi
         } else {
-          Write-Warning "NSIS not found, skipping .exe generation"
+          Write-Warning "NSIS not found, skipping .exe"
         }
 
     - name: Package .msi (WiX)
       if: inputs.os == 'windows'
       shell: pwsh
       run: |
-        $wixPaths = @(
-          "$env:ProgramFiles\WiX Toolset v3.11\bin",
-          "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin"
-        )
-        $wixDir = $wixPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($wixDir) {
+        $wixDir = "$env:ProgramFiles\WiX Toolset v3.11\bin"
+        if (-not (Test-Path $wixDir)) { $wixDir = "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin" }
+        if (Test-Path $wixDir) {
           $candle = Join-Path $wixDir "candle.exe"
           $light = Join-Path $wixDir "light.exe"
-          if (Test-Path $candle) {
-            & $candle -nologo -arch x64 -out build\windows\cnmd.wixobj installer\windows\cnmd.wxs
-            & $light -nologo -out cnmd-${{ inputs.version }}-windows-${{ inputs.arch }}.msi build\windows\cnmd.wixobj
-          }
+          & $candle -nologo -arch x64 -out build\windows\cnmd.wixobj installer\windows\cnmd.wxs
+          & $light -nologo -out cnmd-${{ inputs.version }}-windows-${{ inputs.arch }}.msi build\windows\cnmd.wixobj
         } else {
-          Write-Warning "WiX Toolset not found, skipping .msi generation"
+          Write-Warning "WiX not found, skipping .msi"
         }
 
-    # ===== Upload Artifacts =====
-    - name: Upload Linux artifacts
-      if: inputs.os == 'linux'
+    # ===== Upload =====
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: cnmd-linux-${{ inputs.arch }}
+        name: cnmd-${{ inputs.os }}-${{ inputs.arch }}
         path: |
-          cnmd-linux-*.tar.gz
-          cnmd_${{ inputs.version }}_*.deb
-          cnmd-${{ inputs.version }}-*.rpm
-        retention-days: 7
-
-    - name: Upload macOS artifacts
-      if: inputs.os == 'macos'
-      uses: actions/upload-artifact@v4
-      with:
-        name: cnmd-macos-${{ inputs.arch }}
-        path: |
-          cnmd-macos-*.tar.gz
-          cnmd-${{ inputs.version }}-*.pkg
-        retention-days: 7
-
-    - name: Upload Windows artifacts
-      if: inputs.os == 'windows'
-      uses: actions/upload-artifact@v4
-      with:
-        name: cnmd-windows-${{ inputs.arch }}
-        path: |
+          cnmd-*-linux-*.tar.gz
+          cnmd_*_*.deb
+          cnmd-*.*.rpm
+          cnmd-*-macos-*.tar.gz
+          cnmd-*.pkg
           cnmd-*-windows-*.zip
           cnmd-*-windows-*.exe
           cnmd-*-windows-*.msi

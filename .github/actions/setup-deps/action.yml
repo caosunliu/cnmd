@@ -5,10 +5,6 @@ inputs:
   os:
     description: 'Target OS (linux, macos, windows)'
     required: true
-  install-gmssl:
-    description: 'Install GmSSL'
-    required: false
-    default: 'true'
 
 runs:
   using: 'composite'
@@ -41,22 +37,27 @@ runs:
       shell: pwsh
       run: |
         pip install meson ninja
-        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-        choco install nsis -y
-        choco install wixtoolset -y
+        choco install cmake nsis wixtoolset -y
         echo "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: Cache GmSSL
-      if: inputs.install-gmssl == 'true'
+      if: inputs.os != 'windows'
       uses: actions/cache@v4
       with:
         path: src/gmssl
         key: gmssl-${{ inputs.os }}-v3.2.0
-        restore-keys: |
-          gmssl-${{ inputs.os }}-
+        restore-keys: gmssl-${{ inputs.os }}-
+
+    - name: Cache GmSSL (Windows)
+      if: inputs.os == 'windows'
+      uses: actions/cache@v4
+      with:
+        path: src/gmssl
+        key: gmssl-windows-v3.2.0
+        restore-keys: gmssl-windows-
 
     - name: Download GmSSL
-      if: inputs.install-gmssl == 'true' && inputs.os != 'windows'
+      if: inputs.os != 'windows'
       shell: bash
       run: |
         if [ ! -d "src/gmssl" ]; then
@@ -64,7 +65,7 @@ runs:
         fi
 
     - name: Download GmSSL (Windows)
-      if: inputs.install-gmssl == 'true' && inputs.os == 'windows'
+      if: inputs.os == 'windows'
       shell: pwsh
       run: |
         if (-not (Test-Path "src/gmssl")) {
