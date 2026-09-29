@@ -1,12 +1,5 @@
 #
-# build-windows.ps1 - Windows平台编译CNMD数据库
-#
-# 用法: .\build-windows.ps1 [选项]
-#   -Prefix DIR      安装路径 (默认: C:\cnmd)
-#   -Jobs N          并行编译数 (默认: CPU核心数)
-#   -Debug           启用调试模式
-#   -Clean           清理之前的编译
-#   -Help            显示帮助
+# build-windows.ps1 - Windows build script for CNMD
 #
 
 param(
@@ -20,39 +13,10 @@ param(
 $ErrorActionPreference = "Stop"
 $Version = "1.0.0"
 
-function Show-Help {
-    Write-Host @"
-==========================================
-  CNMD 数据库 Windows 编译脚本
-  版本: $Version
-  基础版本: PostgreSQL 18
-==========================================
-
-用法: .\build-windows.ps1 [选项]
-
-选项:
-  -Prefix DIR      安装路径 (默认: C:\cnmd)
-  -Jobs N          并行编译数 (默认: CPU核心数)
-  -Debug           启用调试模式
-  -Clean           清理之前的编译
-  -Help            显示此帮助信息
-
-前置要求:
-  1. Visual Studio 2019/2022 (含C++桌面开发工作负载)
-  2. Meson >= 0.54
-  3. Ninja
-  4. Strawberry Perl
-  5. CMake (用于GmSSL)
-  6. OpenSSL 开发库
-
-环境变量:
-  Visual Studio: 确保已安装Visual Studio并配置好环境
-  Perl: Strawberry Perl需要在PATH中
-"@
+if ($Help) {
+    Write-Host "Usage: .\build-windows.ps1 -Prefix C:\cnmd"
     exit 0
 }
-
-if ($Help) { Show-Help }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
@@ -61,71 +25,49 @@ $BuildDir = Join-Path $ProjectRoot "build\windows"
 $GmSSLDir = Join-Path $ProjectRoot "src\gmssl"
 
 Write-Host "=========================================="
-Write-Host "  CNMD 数据库 Windows 编译脚本"
-Write-Host "  版本: $Version"
-Write-Host "  基础版本: PostgreSQL 18"
+Write-Host "  CNMD Windows Build Script"
+Write-Host "  Version: $Version"
 Write-Host "=========================================="
 Write-Host ""
-Write-Host "编译配置:"
-Write-Host "  安装路径: $Prefix"
-Write-Host "  并行编译: $Jobs 线程"
-Write-Host "  调试模式: $Debug"
-Write-Host "  构建目录: $BuildDir"
+Write-Host "Config:"
+Write-Host "  Prefix: $Prefix"
+Write-Host "  Jobs: $Jobs"
 Write-Host ""
 
-# 检查必要工具
+# Check tools
 function Test-Command {
     param([string]$Cmd)
     $null -ne (Get-Command $Cmd -ErrorAction SilentlyContinue)
 }
 
-Write-Host "[检查] 验证编译环境..."
+Write-Host "[Check] Verifying build tools..."
 
-# 检查 Meson
-if (-not (Test-Command "meson")) {
-    Write-Error "未找到 meson。请安装: pip install meson"
-    exit 1
-}
+if (-not (Test-Command "meson")) { throw "meson not found. Install: pip install meson" }
+if (-not (Test-Command "ninja")) { throw "ninja not found. Install: pip install ninja" }
+if (-not (Test-Command "cmake")) { throw "cmake not found. Install CMake" }
+if (-not (Test-Command "perl")) { throw "perl not found. Install Strawberry Perl" }
 
-# 检查 Ninja
-if (-not (Test-Command "ninja")) {
-    Write-Error "未找到 ninja。请安装: pip install ninja"
-    exit 1
-}
+Write-Host "[OK] Build tools verified"
 
-# 检查 CMake
-if (-not (Test-Command "cmake")) {
-    Write-Error "未找到 cmake。请安装 CMake"
-    exit 1
-}
-
-# 检查 Perl
-if (-not (Test-Command "perl")) {
-    Write-Error "未找到 perl。请安装 Strawberry Perl"
-    exit 1
-}
-
-Write-Host "[通过] 编译工具检查完成"
-
-# 清理
+# Clean
 if ($Clean -and (Test-Path $BuildDir)) {
-    Write-Host "[信息] 清理之前的编译..."
+    Write-Host "[Info] Cleaning previous build..."
     Remove-Item -Recurse -Force $BuildDir
 }
 
-# 创建构建目录
+# Create build directory
 if (-not (Test-Path $BuildDir)) {
     New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
 }
 
-# ===== 编译 GmSSL =====
+# ===== Build GmSSL =====
 Write-Host ""
-Write-Host "[步骤 1/4] 编译 GmSSL 国密算法库..."
+Write-Host "[Step 1/4] Building GmSSL..."
 
 $GmSSLBuildDir = Join-Path $BuildDir "gmssl-build"
 
 if (-not (Test-Path $GmSSLDir)) {
-    Write-Host "[信息] GmSSL源码不存在，开始获取..."
+    Write-Host "[Info] Downloading GmSSL..."
     git clone --branch v3.2.0 --depth 1 https://github.com/guanzhi/GmSSL.git $GmSSLDir
 }
 
@@ -149,35 +91,40 @@ try {
         "-DBUILD_TESTING=OFF"
     )
     & cmake @cmakeArgs
-    if ($LASTEXITCODE -ne 0) { throw "CMake 配置 GmSSL 失败" }
+    if ($LASTEXITCODE -ne 0) { throw "CMake configure GmSSL failed" }
 
     & cmake --build . --config Release --parallel $Jobs
-    if ($LASTEXITCODE -ne 0) { throw "编译 GmSSL 失败" }
+    if ($LASTEXITCODE -ne 0) { throw "Build GmSSL failed" }
 
-    & cmake --install . --config Release
-    if ($LASTEXITCODE -ne 0) { throw "安装 GmSSL 失败" }
+    & cmake --install . --config Release --prefix $GmSSLInstallDir
+    if ($LASTEXITCODE -ne 0) { throw "Install GmSSL failed" }
 }
 finally {
     Pop-Location
 }
 
-Write-Host "[完成] GmSSL 编译成功"
+Write-Host "[Done] GmSSL built successfully"
 
-# ===== 应用CNMD补丁 =====
+# ===== Apply patches =====
 Write-Host ""
-Write-Host "[步骤 2/4] 应用CNMD补丁..."
+Write-Host "[Step 2/4] Applying CNMD patches..."
 
 $PatchesDir = Join-Path $ProjectRoot "patches"
 Push-Location $SrcDir
 try {
     $patches = Get-ChildItem -Path $PatchesDir -Filter "*.patch" | Sort-Object Name
     foreach ($patch in $patches) {
-        Write-Host "  应用补丁: $($patch.Name)"
-        & git apply --check $patch.FullName 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            & git apply $patch.FullName
-        } else {
-            Write-Host "  [跳过] 补丁可能已应用"
+        Write-Host "  Applying: $($patch.Name)"
+        try {
+            & git apply --check $patch.FullName 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                & git apply $patch.FullName
+                Write-Host "    Applied"
+            } else {
+                Write-Host "    [Skip] Already applied"
+            }
+        } catch {
+            Write-Host "    [Skip] Patch failed: $_"
         }
     }
 }
@@ -185,16 +132,16 @@ finally {
     Pop-Location
 }
 
-# ===== 编译 PostgreSQL (CNMD) =====
+# ===== Build PostgreSQL (CNMD) =====
 Write-Host ""
-Write-Host "[步骤 3/4] 编译 CNMD 数据库..."
+Write-Host "[Step 3/4] Building CNMD..."
 
 $PgBuildDir = Join-Path $BuildDir "postgresql-build"
 if (-not (Test-Path $PgBuildDir)) {
     New-Item -ItemType Directory -Path $PgBuildDir -Force | Out-Null
 }
 
-# PostgreSQL Meson 构建选项
+# Meson options
 $MesonOptions = @(
     "prefix=$Prefix",
     "ssl=openssl",
@@ -206,23 +153,22 @@ $MesonOptions = @(
     "libxslt=disabled",
     "uuid=ossp",
     "plpython=disabled",
-    "plperl=disabled",
-    "contrib_extra_modules=cnmd_security"
+    "plperl=disabled"
 )
 
-# 设置 OpenSSL 路径 (vcpkg 或系统)
+# OpenSSL path
 if ($env:OPENSSL_ROOT_DIR) {
     $MesonOptions += "extra_include_dirs=$($env:OPENSSL_ROOT_DIR)/include"
     $MesonOptions += "extra_lib_dirs=$($env:OPENSSL_ROOT_DIR)/lib"
 }
 
-# 添加 GmSSL 路径
+# GmSSL path
 $MesonOptions += "extra_include_dirs=$GmSSLInstallDir/include"
 $MesonOptions += "extra_lib_dirs=$GmSSLInstallDir/lib"
 
 Push-Location $SrcDir
 try {
-    Write-Host "  配置 Meson 构建..."
+    Write-Host "  Configuring Meson..."
     $mesonSetup = @("setup", $PgBuildDir, "-Dprefix=$Prefix")
     
     foreach ($opt in $MesonOptions) {
@@ -233,38 +179,38 @@ try {
     }
 
     & meson @mesonSetup
-    if ($LASTEXITCODE -ne 0) { throw "Meson 配置失败" }
+    if ($LASTEXITCODE -ne 0) { throw "Meson configure failed" }
 
-    Write-Host "  编译 (使用 $Jobs 个线程)..."
+    Write-Host "  Building (using $Jobs threads)..."
     & meson compile -C $PgBuildDir -j $Jobs
-    if ($LASTEXITCODE -ne 0) { throw "编译失败" }
+    if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 }
 finally {
     Pop-Location
 }
 
-# ===== 安装 =====
+# ===== Install =====
 Write-Host ""
-Write-Host "[步骤 4/4] 安装 CNMD..."
+Write-Host "[Step 4/4] Installing CNMD..."
 
 Push-Location $SrcDir
 try {
     & meson install -C $PgBuildDir --no-rebuild
-    if ($LASTEXITCODE -ne 0) { throw "安装失败" }
+    if ($LASTEXITCODE -ne 0) { throw "Install failed" }
 }
 finally {
     Pop-Location
 }
 
-# 复制 GmSSL DLL 到安装目录的 bin 目录
+# Copy GmSSL DLLs
 $GmSSLDlls = Get-ChildItem -Path (Join-Path $GmSSLInstallDir "bin") -Filter "*.dll" -ErrorAction SilentlyContinue
 $PgBinDir = Join-Path $Prefix "bin"
 foreach ($dll in $GmSSLDlls) {
     Copy-Item $dll.FullName -Destination $PgBinDir -Force
-    Write-Host "  复制 $($dll.Name) -> $PgBinDir"
+    Write-Host "  Copied $($dll.Name)"
 }
 
-# 复制配置文件
+# Copy config files
 $ConfigDir = Join-Path $ProjectRoot "config"
 if (Test-Path $ConfigDir) {
     $DataDir = Join-Path $Prefix "data"
@@ -277,12 +223,11 @@ if (Test-Path $ConfigDir) {
 
 Write-Host ""
 Write-Host "=========================================="
-Write-Host "  CNMD Windows 编译完成!"
-Write-Host "  安装路径: $Prefix"
+Write-Host "  Build Complete!"
+Write-Host "  Install: $Prefix"
 Write-Host "=========================================="
 Write-Host ""
-Write-Host "下一步操作:"
-Write-Host "  1. 初始化数据库: $Prefix\bin\cnmd-initdb.exe -D $Prefix\data"
-Write-Host "  2. 注册服务: $Prefix\bin\cnmd-register.exe -D $Prefix\data"
-Write-Host "  3. 启动服务: net start cnmd"
+Write-Host "Next steps:"
+Write-Host "  1. Init DB: $Prefix\bin\cnmd-initdb.exe -D $Prefix\data"
+Write-Host "  2. Start: net start cnmd"
 Write-Host ""
