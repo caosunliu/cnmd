@@ -71,15 +71,6 @@ runs:
           git clone --branch v3.2.0 --depth 1 https://github.com/guanzhi/GmSSL.git src/gmssl
         }
 
-    - name: Cache vcpkg
-      if: inputs.os == 'windows'
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.VCPKG_DEFAULT_TRIPLET }}
-        key: vcpkg-${{ inputs.os }}-x64-windows
-        restore-keys: |
-          vcpkg-${{ inputs.os }}-
-
     - name: Install vcpkg dependencies
       if: inputs.os == 'windows'
       shell: pwsh
