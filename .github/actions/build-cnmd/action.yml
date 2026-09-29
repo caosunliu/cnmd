@@ -1,0 +1,118 @@
+name: 'Build CNMD'
+description: 'Build CNMD database from source'
+
+inputs:
+  os:
+    description: 'Target OS (linux, macos, windows)'
+    required: true
+  prefix:
+    description: 'Installation prefix'
+    required: false
+    default: '/usr/local/cnmd'
+  jobs:
+    description: 'Parallel jobs count'
+    required: false
+    default: ''
+  debug:
+    description: 'Enable debug build'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build GmSSL (Linux/macOS)
+      if: inputs.os != 'windows'
+      shell: bash
+      run: |
+        cd src/gmssl
+        mkdir -p build && cd build
+        cmake .. -DCMAKE_INSTALL_PREFIX=${{ inputs.prefix }}-deps \
+                 -DCMAKE_BUILD_TYPE=Release \
+                 -DBUILD_SHARED_LIBS=ON \
+                 -DBUILD_TESTING=OFF
+        cmake --build . --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+        cmake --install . --config Release
+
+    - name: Build GmSSL (Windows)
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        $jobs = if ("${{ inputs.jobs }}" -eq "") { 
+          (Get-CimInstance Win32_Processor).NumberOfCores 
+        } else { 
+          "${{ inputs.jobs }}" 
+        }
+        
+        $gmsslBuild = "src/gmssl/build"
+        $gmsslInstall = "build/gmssl-install"
+        
+        New-Item -ItemType Directory -Path $gmsslBuild -Force | Out-Null
+        New-Item -ItemType Directory -Path $gmsslInstall -Force | Out-Null
+        
+        cmake -S src/gmssl -B $gmsslBuild `
+          -DCMAKE_INSTALL_PREFIX=$gmsslInstall `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DBUILD_SHARED_LIBS=ON `
+          -DBUILD_TESTING=OFF
+        
+        cmake --build $gmsslBuild --config Release --parallel $jobs
+        cmake --install $gmsslBuild --config Release
+
+    - name: Apply CNMD patches
+      shell: bash
+      run: |
+        cd src/postgresql-18
+        for patch in ../../patches/*.patch; do
+          echo "Applying: $(basename $patch)"
+          git apply --check "$patch" 2>/dev/null && git apply "$patch" || echo "Patch already applied or not applicable"
+        done
+
+    - name: Build CNMD (Linux)
+      if: inputs.os == 'linux'
+      shell: bash
+      run: |
+        cd src/postgresql-18
+        chmod +x configure
+        ./configure \
+          --prefix=${{ inputs.prefix }} \
+          --with-ssl=openssl \
+          --enable-integer-datetimes \
+          --without-readline \
+          --with-libxml \
+          --with-libxslt \
+          --with-uuid-ossp
+        make -j$(nproc)
+        make install
+
+    - name: Build CNMD (macOS)
+      if: inputs.os == 'macos'
+      shell: bash
+      run: |
+        cd src/postgresql-18
+        chmod +x configure
+        export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix icu4c)/lib/pkgconfig:$(brew --prefix libxslt)/lib/pkgconfig"
+        export LDFLAGS="-L$(brew --prefix openssl@3)/lib -L$(brew --prefix readline)/lib -L$(brew --prefix zlib)/lib -L$(brew --prefix icu4c)/lib"
+        export CPPFLAGS="-I$(brew --prefix openssl@3)/include -I$(brew --prefix readline)/include -I$(brew --prefix zlib)/include -I$(brew --prefix icu4c)/include"
+        ./configure \
+          --prefix=${{ inputs.prefix }} \
+          --with-ssl=openssl \
+          --with-includes=$(brew --prefix openssl@3)/include \
+          --with-libraries=$(brew --prefix openssl@3)/lib \
+          --enable-integer-datetimes \
+          --without-readline \
+          --with-libxslt
+        make -j$(sysctl -n hw.ncpu)
+        make install
+
+    - name: Build CNMD (Windows)
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        $jobs = if ("${{ inputs.jobs }}" -eq "") { 
+          (Get-CimInstance Win32_Processor).NumberOfCores 
+        } else { 
+          "${{ inputs.jobs }}" 
+        }
+        
+        .\scripts\build-windows.ps1 -Prefix "${{ inputs.prefix }}" -Jobs $jobs

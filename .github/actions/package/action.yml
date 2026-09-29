@@ -1,0 +1,169 @@
+name: 'Package CNMD'
+description: 'Create distribution packages for CNMD'
+
+inputs:
+  os:
+    description: 'Target OS (linux, macos, windows)'
+    required: true
+  arch:
+    description: 'Target architecture (amd64, arm64)'
+    required: false
+    default: 'amd64'
+  prefix:
+    description: 'Installation prefix'
+    required: false
+    default: '/usr/local/cnmd'
+  version:
+    description: 'Package version'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    # ===== Linux Packages =====
+    - name: Package .tar.gz (Linux)
+      if: inputs.os == 'linux'
+      shell: bash
+      run: |
+        tar -czf cnmd-linux-${{ inputs.arch }}.tar.gz -C build cnmd
+
+    - name: Package .deb
+      if: inputs.os == 'linux'
+      shell: bash
+      run: |
+        DEB_DIR=cnmd_${{ inputs.version }}_amd64
+        mkdir -p $DEB_DIR/DEBIAN
+        mkdir -p $DEB_DIR/usr
+        cp -r build/cnmd/* $DEB_DIR/usr/
+        cat > $DEB_DIR/DEBIAN/control << EOF
+        Package: cnmd
+        Version: ${{ inputs.version }}
+        Section: database
+        Priority: optional
+        Architecture: amd64
+        Depends: libreadline8, zlib1g, libssl3, libxml2, libxslt1.1, libicu70, uuid-runtime
+        Maintainer: CNMD Team <cnmd@example.com>
+        Description: CNMD Database
+         CNMD is a domestic database based on PostgreSQL.
+        EOF
+        dpkg-deb --build $DEB_DIR cnmd_${{ inputs.version }}_amd64.deb
+
+    - name: Package .rpm
+      if: inputs.os == 'linux'
+      shell: bash
+      run: |
+        mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        cat > ~/rpmbuild/SPECS/cnmd.spec << 'EOF'
+        Name: cnmd
+        Version: ${{ inputs.version }}
+        Release: 1
+        Summary: CNMD Database
+        License: PostgreSQL
+        Group: Applications/Databases
+        BuildRoot: %{_tmppath}/%{name}-buildroot
+        Requires: readline zlib openssl libxml2 libxslt libicu util-linux
+
+        %description
+        CNMD is a domestic database based on PostgreSQL.
+
+        %install
+        mkdir -p %{buildroot}/usr/local
+        cp -r %{_sourcedir}/cnmd %{buildroot}/usr/local/
+
+        %files
+        /usr/local/cnmd/*
+        EOF
+        cp -r build/cnmd ~/rpmbuild/SOURCES/
+        rpmbuild -bb ~/rpmbuild/SPECS/cnmd.spec
+
+    # ===== macOS Packages =====
+    - name: Package .tar.gz (macOS)
+      if: inputs.os == 'macos'
+      shell: bash
+      run: |
+        tar -czf cnmd-macos-${{ inputs.arch }}.tar.gz -C build cnmd
+
+    - name: Package .pkg
+      if: inputs.os == 'macos'
+      shell: bash
+      run: |
+        pkgbuild --root build/cnmd \
+          --identifier com.cnmd.database \
+          --version ${{ inputs.version }} \
+          --install-location /usr/local \
+          cnmd-${{ inputs.version }}-${{ inputs.arch }}.pkg
+
+    # ===== Windows Packages =====
+    - name: Package portable .zip (Windows)
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        Compress-Archive -Path build\cnmd -DestinationPath cnmd-${{ inputs.version }}-windows-${{ inputs.arch }}-portable.zip
+
+    - name: Package .exe (NSIS)
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        $nsisPaths = @(
+          "$env:ProgramFiles\NSIS\makensis.exe",
+          "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+        )
+        $nsis = $nsisPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($nsis) {
+          & $nsis /DPRODUCT_VERSION=${{ inputs.version }} installer\windows\cnmd.nsi
+        } else {
+          Write-Warning "NSIS not found, skipping .exe generation"
+        }
+
+    - name: Package .msi (WiX)
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        $wixPaths = @(
+          "$env:ProgramFiles\WiX Toolset v3.11\bin",
+          "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin"
+        )
+        $wixDir = $wixPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($wixDir) {
+          $candle = Join-Path $wixDir "candle.exe"
+          $light = Join-Path $wixDir "light.exe"
+          if (Test-Path $candle) {
+            & $candle -nologo -arch x64 -out build\windows\cnmd.wixobj installer\windows\cnmd.wxs
+            & $light -nologo -out cnmd-${{ inputs.version }}-windows-${{ inputs.arch }}.msi build\windows\cnmd.wixobj
+          }
+        } else {
+          Write-Warning "WiX Toolset not found, skipping .msi generation"
+        }
+
+    # ===== Upload Artifacts =====
+    - name: Upload Linux artifacts
+      if: inputs.os == 'linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: cnmd-linux-${{ inputs.arch }}
+        path: |
+          cnmd-linux-*.tar.gz
+          cnmd_${{ inputs.version }}_*.deb
+          cnmd-${{ inputs.version }}-*.rpm
+        retention-days: 7
+
+    - name: Upload macOS artifacts
+      if: inputs.os == 'macos'
+      uses: actions/upload-artifact@v4
+      with:
+        name: cnmd-macos-${{ inputs.arch }}
+        path: |
+          cnmd-macos-*.tar.gz
+          cnmd-${{ inputs.version }}-*.pkg
+        retention-days: 7
+
+    - name: Upload Windows artifacts
+      if: inputs.os == 'windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: cnmd-windows-${{ inputs.arch }}
+        path: |
+          cnmd-*-windows-*.zip
+          cnmd-*-windows-*.exe
+          cnmd-*-windows-*.msi
+        retention-days: 7

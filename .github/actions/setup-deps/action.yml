@@ -1,0 +1,88 @@
+name: 'Setup Build Dependencies'
+description: 'Install common build dependencies for CNMD'
+
+inputs:
+  os:
+    description: 'Target OS (linux, macos, windows)'
+    required: true
+  install-gmssl:
+    description: 'Install GmSSL'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Linux dependencies
+      if: inputs.os == 'linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential gcc g++ make cmake git wget curl \
+          pkg-config libreadline-dev zlib1g-dev libssl-dev \
+          libxml2-dev libxslt1-dev libsystemd-dev libicu-dev \
+          uuid-dev flex bison python3 rpm
+
+    - name: Install macOS dependencies
+      if: inputs.os == 'macos'
+      shell: bash
+      run: |
+        brew install openssl@3 readline zlib libxml2 libxslt icu4c cmake wget
+
+    - name: Setup MSVC
+      if: inputs.os == 'windows'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Windows dependencies
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        pip install meson ninja
+        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+        choco install nsis -y
+        choco install wixtoolset -y
+        echo "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Cache GmSSL
+      if: inputs.install-gmssl == 'true'
+      uses: actions/cache@v4
+      with:
+        path: src/gmssl
+        key: gmssl-${{ inputs.os }}-v3.2.0
+        restore-keys: |
+          gmssl-${{ inputs.os }}-
+
+    - name: Download GmSSL
+      if: inputs.install-gmssl == 'true' && inputs.os != 'windows'
+      shell: bash
+      run: |
+        if [ ! -d "src/gmssl" ]; then
+          git clone --branch v3.2.0 --depth 1 https://github.com/guanzhi/GmSSL.git src/gmssl
+        fi
+
+    - name: Download GmSSL (Windows)
+      if: inputs.install-gmssl == 'true' && inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        if (-not (Test-Path "src/gmssl")) {
+          git clone --branch v3.2.0 --depth 1 https://github.com/guanzhi/GmSSL.git src/gmssl
+        }
+
+    - name: Cache vcpkg
+      if: inputs.os == 'windows'
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.VCPKG_DEFAULT_TRIPLET }}
+        key: vcpkg-${{ inputs.os }}-x64-windows
+        restore-keys: |
+          vcpkg-${{ inputs.os }}-
+
+    - name: Install vcpkg dependencies
+      if: inputs.os == 'windows'
+      shell: pwsh
+      run: |
+        vcpkg install openssl:x64-windows zlib:x64-windows readline:x64-windows
+        echo "OPENSSL_ROOT_DIR=$env:VCPKG_ROOT\installed\x64-windows" >> $env:GITHUB_ENV
