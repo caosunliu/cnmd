@@ -151,7 +151,7 @@ $MesonOptions = @(
     "readline=disabled",
     "libxml=disabled",
     "libxslt=disabled",
-    "uuid=ossp",
+    "uuid=none",
     "plpython=disabled",
     "plperl=disabled"
 )
