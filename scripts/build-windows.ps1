@@ -156,15 +156,24 @@ $MesonOptions = @(
     "plperl=disabled"
 )
 
-# OpenSSL path
+# OpenSSL + GmSSL paths
+$includeDirs = @()
+$libDirs = @()
+
 if ($env:OPENSSL_ROOT_DIR) {
-    $MesonOptions += "extra_include_dirs=$($env:OPENSSL_ROOT_DIR)/include"
-    $MesonOptions += "extra_lib_dirs=$($env:OPENSSL_ROOT_DIR)/lib"
+    $includeDirs += "$($env:OPENSSL_ROOT_DIR)/include"
+    $libDirs += "$($env:OPENSSL_ROOT_DIR)/lib"
 }
 
-# GmSSL path
-$MesonOptions += "extra_include_dirs=$GmSSLInstallDir/include"
-$MesonOptions += "extra_lib_dirs=$GmSSLInstallDir/lib"
+$includeDirs += "$GmSSLInstallDir/include"
+$libDirs += "$GmSSLInstallDir/lib"
+
+if ($includeDirs.Count -gt 0) {
+    $MesonOptions += "extra_include_dirs=$($includeDirs -join ',')"
+}
+if ($libDirs.Count -gt 0) {
+    $MesonOptions += "extra_lib_dirs=$($libDirs -join ',')"
+}
 
 Push-Location $SrcDir
 try {
